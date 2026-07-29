@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>App Shell & Navigation Block #004</title>
+<style>
+:root{
+  --factory-primary:#6D5EF5;
+  --factory-secondary:#F4F1EA;
+  --factory-font-family:Inter,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --factory-heading-weight:700;
+  --factory-radius:16px;
+  --factory-gap:16px;
+  --factory-control-height:48px;
+
+  --bg:#0e0f14;
+  --panel:#171923;
+  --panel-2:#10121a;
+  --line:#303646;
+  --text:#f5f7fb;
+  --muted:#b7bdca;
+  --success:#8fe3ad;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;background:var(--bg);color:var(--text);
+  font-family:var(--factory-font-family);line-height:1.45;
+}
+button,input,select,textarea{font:inherit}
+.page{max-width:1180px;margin:0 auto;padding:24px}
+.eyebrow{color:#a88cff;letter-spacing:.14em;font-weight:800;font-size:.82rem}
+.header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px;margin-bottom:24px}
+h1{font-size:clamp(2rem,5vw,4rem);line-height:1.05;margin:.4rem 0 0;font-weight:800}
+.badge{border:1px solid #566078;border-radius:999px;padding:10px 16px;color:#d5d9e3;white-space:nowrap}
+.grid{display:grid;grid-template-columns:390px 1fr;gap:22px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:22px;padding:22px}
+.card h2{font-size:1.8rem;margin:0 0 18px}
+.field{margin-bottom:16px}
+label{display:block;color:#c8cedb;font-weight:700;margin-bottom:8px}
+input,select,textarea{
+  width:100%;min-height:var(--factory-control-height);
+  border:1px solid #3a4253;background:var(--panel-2);color:var(--text);
+  border-radius:14px;padding:12px 14px;outline:none
+}
+textarea{min-height:120px;resize:vertical}
+input:focus,select:focus,textarea:focus{border-color:var(--factory-primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--factory-primary) 24%,transparent)}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.btn{border:0;border-radius:14px;padding:12px 18px;font-weight:800;cursor:pointer}
+.btn-primary{background:var(--factory-primary);color:white}
+.btn-secondary{background:transparent;color:white;border:1px solid #536078}
+.btn-danger{background:#2a1820;color:#ffb4c5;border:1px solid #603242}
+.status{margin-top:16px;background:#0b0d13;border:1px solid #283040;border-radius:16px;padding:14px;color:var(--success);white-space:pre-wrap;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.84rem;max-height:260px;overflow:auto}
+
+.preview-wrap{display:grid;gap:18px}
+.shell{
+  min-height:620px;border:1px solid #353b49;border-radius:22px;overflow:hidden;background:#eef1f6;color:#111827;
+  display:grid;grid-template-columns:240px 1fr;
+}
+.shell.collapsed{grid-template-columns:78px 1fr}
+.sidebar{background:var(--factory-primary);color:white;padding:18px;display:flex;flex-direction:column;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-weight:900;font-size:1.1rem;min-height:42px}
+.logo{width:38px;height:38px;border-radius:12px;background:var(--factory-secondary);color:var(--factory-primary);display:grid;place-items:center;font-weight:900;overflow:hidden}
+.logo img{width:100%;height:100%;object-fit:cover}
+.nav{display:grid;gap:8px}
+.nav button{
+  border:0;background:transparent;color:inherit;text-align:left;padding:11px 12px;border-radius:12px;cursor:pointer;
+  display:flex;align-items:center;gap:10px;font-weight:700
+}
+.nav button.active{background:rgba(255,255,255,.20)}
+.nav .icon{width:24px;text-align:center}
+.shell.collapsed .label,.shell.collapsed .brand-name{display:none}
+.shell.collapsed .sidebar{padding:18px 12px}
+.shell.collapsed .nav button{justify-content:center}
+.sidebar-footer{margin-top:auto}
+.main{display:grid;grid-template-rows:auto 1fr auto;min-width:0}
+.topbar{background:white;padding:18px 20px;border-bottom:1px solid #d9dee7;display:flex;align-items:center;justify-content:space-between;gap:14px}
+.topbar-left{display:flex;align-items:center;gap:12px}
+.icon-btn{border:1px solid #d5dae5;background:white;border-radius:12px;padding:9px 12px;cursor:pointer}
+.content{padding:24px;background:var(--factory-secondary)}
+.content-card{background:white;border:1px solid #d8dde7;border-radius:var(--factory-radius);padding:22px;min-height:300px}
+.content-card h3{margin-top:0;font-size:1.6rem;font-weight:var(--factory-heading-weight)}
+.footer{background:white;border-top:1px solid #d9dee7;padding:12px 20px;color:#667085;font-size:.9rem}
+.mobile-bottom{display:none;background:white;border-top:1px solid #d8dde7;padding:8px}
+.mobile-bottom button{flex:1;border:0;background:transparent;padding:10px 4px}
+.preset-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px}
+.preset{border:1px solid #41495b;background:#11141d;color:#fff;border-radius:14px;padding:12px;cursor:pointer;text-align:left}
+.preset strong{display:block}
+.preset small{color:#aeb5c3}
+.contract{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.contract div{background:#11141d;border:1px solid #343b4b;border-radius:14px;padding:14px}
+.contract code{color:#9de5b4}
+@media(max-width:900px){
+  .grid{grid-template-columns:1fr}
+  .shell{grid-template-columns:1fr;min-height:600px}
+  .sidebar{display:none}
+  .mobile-bottom{display:flex}
+}
+@media(max-width:560px){
+  .page{padding:18px}
+  .header{display:block}
+  .badge{display:inline-block;margin-top:14px}
+  .row,.preset-grid,.contract{grid-template-columns:1fr}
+  .card{padding:18px}
+  .content{padding:14px}
+}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div>
+      <div class="eyebrow">SHIA APP FACTORY</div>
+      <h1>App Shell & Navigation Block #004</h1>
+    </div>
+    <div class="badge">v0.1.0 · Workbench</div>
+  </div>
+
+  <div class="grid">
+    <section class="card">
+      <h2>Shell configuration</h2>
+
+      <div class="preset-grid">
+        <button class="preset" data-preset="shia">
+          <strong>Shia Baby</strong><small>Store, orders, customers</small>
+        </button>
+        <button class="preset" data-preset="scaffold">
+          <strong>Scaffold Office</strong><small>Roster, time, work orders</small>
+        </button>
+      </div>
+
+      <div class="field">
+        <label for="appName">Application name</label>
+        <input id="appName" value="Untitled App">
+      </div>
+
+      <div class="field">
+        <label for="logoUrl">Logo URL</label>
+        <input id="logoUrl" placeholder="https://...">
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="layout">Layout</label>
+          <select id="layout">
+            <option value="sidebar">Sidebar</option>
+            <option value="topbar">Top bar</option>
+            <option value="mobile">Mobile bottom bar</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="startPage">Start page</label>
+          <select id="startPage"></select>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="items">Navigation items</label>
+        <textarea id="items">Dashboard
+Customers
+Records
+Settings</textarea>
+      </div>
+
+      <div class="row">
+        <div class="field">
+          <label for="showHeader">Header</label>
+          <select id="showHeader">
+            <option value="true">Visible</option>
+            <option value="false">Hidden</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="showFooter">Footer</label>
+          <select id="showFooter">
+            <option value="true">Visible</option>
+            <option value="false">Hidden</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="applyBtn" class="btn btn-primary">Apply shell</button>
+        <button id="collapseBtn" class="btn btn-secondary">Collapse menu</button>
+        <button id="resetBtn" class="btn btn-secondary">Reset</button>
+      </div>
+
+      <pre id="status" class="status">Block initialized.</pre>
+    </section>
+
+    <section class="preview-wrap">
+      <div class="card">
+        <h2>Assembly preview</h2>
+        <div id="shell" class="shell">
+          <aside id="sidebar" class="sidebar">
+            <div class="brand">
+              <div id="logo" class="logo">S</div>
+              <span id="brandName" class="brand-name">Untitled App</span>
+            </div>
+            <nav id="nav" class="nav"></nav>
+            <div class="sidebar-footer">
+              <button id="sidebarCollapse" class="btn btn-secondary" style="width:100%">Collapse</button>
+            </div>
+          </aside>
+
+          <div class="main">
+            <header id="topbar" class="topbar">
+              <div class="topbar-left">
+                <button id="mobileMenu" class="icon-btn">☰</button>
+                <strong id="pageTitle">Dashboard</strong>
+              </div>
+              <span id="headerAppName">Untitled App</span>
+            </header>
+
+            <main class="content">
+              <div class="content-card">
+                <h3 id="contentTitle">Dashboard</h3>
+                <p>This is the active page slot. Forms, Records, Calendar, Reports, and future blocks can mount here.</p>
+                <button class="btn btn-primary">Primary action</button>
+              </div>
+            </main>
+
+            <footer id="footer" class="footer">Powered by Shia App Factory</footer>
+            <nav id="mobileBottom" class="mobile-bottom"></nav>
+          </div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Runtime contract</h2>
+        <div class="contract">
+          <div><strong>Inputs</strong><br><code>loadNavigation()</code><br><code>navigate()</code><br><code>collapseMenu()</code><br><code>setTitle()</code></div>
+          <div><strong>Outputs</strong><br><code>navigationChanged</code><br><code>pageChanged</code><br><code>menuCollapsed</code><br><code>menuExpanded</code></div>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  const DEFAULT = {
+    type:"NavigationConfig",
+    version:"1.0",
+    app:{name:"Untitled App",logoUrl:""},
+    layout:{mode:"sidebar",showHeader:true,showFooter:true,collapsed:false},
+    navigation:{
+      startPage:"Dashboard",
+      items:["Dashboard","Customers","Records","Settings"]
+    }
+  };
+
+  const PRESETS = {
+    shia:{
+      ...structuredClone(DEFAULT),
+      app:{name:"Shia Baby",logoUrl:""},
+      navigation:{startPage:"Home",items:["Home","Products","Songs","Orders","Customers"]}
+    },
+    scaffold:{
+      ...structuredClone(DEFAULT),
+      app:{name:"Scaffold Office",logoUrl:""},
+      navigation:{startPage:"Dashboard",items:["Dashboard","Roster","Time Charges","Work Orders","Employees","Reports"]}
+    }
+  };
+
+  const $ = id => document.getElementById(id);
+  const els = {
+    appName:$("appName"),logoUrl:$("logoUrl"),layout:$("layout"),startPage:$("startPage"),
+    items:$("items"),showHeader:$("showHeader"),showFooter:$("showFooter"),
+    shell:$("shell"),nav:$("nav"),mobileBottom:$("mobileBottom"),brandName:$("brandName"),
+    logo:$("logo"),pageTitle:$("pageTitle"),contentTitle:$("contentTitle"),
+    headerAppName:$("headerAppName"),topbar:$("topbar"),footer:$("footer"),status:$("status"),
+    sidebar:$("sidebar")
+  };
+
+  let config = structuredClone(DEFAULT);
+  let activePage = config.navigation.startPage;
+
+  function parseItems(){
+    return els.items.value.split("\n").map(v=>v.trim()).filter(Boolean);
+  }
+
+  function draftConfig(){
+    const items = parseItems();
+    const start = items.includes(els.startPage.value) ? els.startPage.value : (items[0] || "Home");
+    return {
+      type:"NavigationConfig",
+      version:"1.0",
+      app:{name:els.appName.value.trim(),logoUrl:els.logoUrl.value.trim()},
+      layout:{
+        mode:els.layout.value,
+        showHeader:els.showHeader.value==="true",
+        showFooter:els.showFooter.value==="true",
+        collapsed:els.shell.classList.contains("collapsed")
+      },
+      navigation:{startPage:start,items}
+    };
+  }
+
+  function updateStartOptions(preferred){
+    const items = parseItems();
+    els.startPage.innerHTML="";
+    items.forEach(item=>{
+      const opt=document.createElement("option");
+      opt.value=item; opt.textContent=item;
+      if(item===preferred) opt.selected=true;
+      els.startPage.appendChild(opt);
+    });
+  }
+
+  function iconFor(label){
+    const s=label.toLowerCase();
+    if(s.includes("home")||s.includes("dashboard")) return "⌂";
+    if(s.includes("customer")||s.includes("employee")||s.includes("roster")) return "👤";
+    if(s.includes("record")||s.includes("order")||s.includes("report")) return "▤";
+    if(s.includes("time")||s.includes("calendar")) return "◷";
+    if(s.includes("product")) return "◫";
+    if(s.includes("song")) return "♪";
+    if(s.includes("setting")) return "⚙";
+    return "•";
+  }
+
+  function renderNav(items){
+    els.nav.innerHTML="";
+    els.mobileBottom.innerHTML="";
+    items.forEach(item=>{
+      const b=document.createElement("button");
+      b.innerHTML=`<span class="icon">${iconFor(item)}</span><span class="label">${item}</span>`;
+      b.className=item===activePage?"active":"";
+      b.addEventListener("click",()=>navigate(item));
+      els.nav.appendChild(b);
+
+      const mb=document.createElement("button");
+      mb.innerHTML=`<div>${iconFor(item)}</div><small>${item}</small>`;
+      mb.addEventListener("click",()=>navigate(item));
+      els.mobileBottom.appendChild(mb);
+    });
+  }
+
+  function render(c){
+    const items=c.navigation.items;
+    if(!items.includes(activePage)) activePage=c.navigation.startPage || items[0] || "Home";
+
+    els.brandName.textContent=c.app.name || "Untitled App";
+    els.headerAppName.textContent=c.app.name || "Untitled App";
+    els.logo.textContent=(c.app.name || "S").charAt(0).toUpperCase();
+    if(c.app.logoUrl){
+      els.logo.innerHTML=`<img alt="" src="${c.app.logoUrl.replace(/"/g,"&quot;")}">`;
+    }
+
+    els.pageTitle.textContent=activePage;
+    els.contentTitle.textContent=activePage;
+    els.topbar.style.display=c.layout.showHeader?"flex":"none";
+    els.footer.style.display=c.layout.showFooter?"block":"none";
+
+    els.shell.classList.toggle("collapsed",!!c.layout.collapsed);
+    els.sidebar.style.display = c.layout.mode==="topbar" ? "none" : "";
+    els.mobileBottom.style.display = c.layout.mode==="mobile" ? "flex" : "";
+    els.shell.style.gridTemplateColumns = c.layout.mode==="topbar" ? "1fr" : "";
+
+    renderNav(items);
+  }
+
+  function syncForm(c){
+    els.appName.value=c.app.name;
+    els.logoUrl.value=c.app.logoUrl;
+    els.layout.value=c.layout.mode;
+    els.showHeader.value=String(c.layout.showHeader);
+    els.showFooter.value=String(c.layout.showFooter);
+    els.items.value=c.navigation.items.join("\n");
+    updateStartOptions(c.navigation.startPage);
+  }
+
+  function emit(event,payload){
+    const envelope={
+      source:"shia-block",
+      blockId:"app-shell-navigation-004",
+      event,
+      payload,
+      timestamp:new Date().toISOString()
+    };
+    els.status.textContent=`${event} emitted.\n`+JSON.stringify(payload,null,2);
+    window.parent?.postMessage(envelope,"*");
+    window.dispatchEvent(new CustomEvent(event,{detail:payload}));
+  }
+
+  function navigate(page){
+    activePage=page;
+    render(config);
+    emit("pageChanged",{page,config});
+  }
+
+  function apply(){
+    config=draftConfig();
+    activePage=config.navigation.startPage;
+    render(config);
+    emit("navigationChanged",config);
+    try{localStorage.setItem("shia:block004:navigation",JSON.stringify(config));}catch{}
+  }
+
+  function toggleCollapse(){
+    config.layout.collapsed=!els.shell.classList.contains("collapsed");
+    render(config);
+    emit(config.layout.collapsed?"menuCollapsed":"menuExpanded",{collapsed:config.layout.collapsed});
+  }
+
+  function reset(){
+    config=structuredClone(DEFAULT);
+    activePage=config.navigation.startPage;
+    syncForm(config);
+    render(config);
+    emit("navigationChanged",config);
+  }
+
+  document.querySelectorAll("[data-preset]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      config=structuredClone(PRESETS[btn.dataset.preset]);
+      activePage=config.navigation.startPage;
+      syncForm(config);
+      render(config);
+      els.status.textContent=`${btn.dataset.preset} preset loaded. Press Apply shell to emit navigationChanged.`;
+    });
+  });
+
+  ["appName","logoUrl","layout","showHeader","showFooter"].forEach(id=>{
+    $(id).addEventListener("input",()=>render(draftConfig()));
+  });
+  els.items.addEventListener("input",()=>{
+    const prior=els.startPage.value;
+    updateStartOptions(prior);
+    render(draftConfig());
+  });
+  els.startPage.addEventListener("change",()=>render(draftConfig()));
+
+  $("applyBtn").addEventListener("click",apply);
+  $("collapseBtn").addEventListener("click",toggleCollapse);
+  $("sidebarCollapse").addEventListener("click",toggleCollapse);
+  $("mobileMenu").addEventListener("click",toggleCollapse);
+  $("resetBtn").addEventListener("click",reset);
+
+  window.addEventListener("message",e=>{
+    const m=e.data||{};
+    if(m.blockId && m.blockId!=="app-shell-navigation-004") return;
+    if(m.event==="loadNavigation" && m.payload){
+      config=m.payload; activePage=config.navigation?.startPage || "Home";
+      syncForm(config); render(config); emit("navigationChanged",config);
+    }
+    if(m.event==="navigate") navigate(m.payload?.page || m.payload);
+    if(m.event==="collapseMenu") toggleCollapse();
+    if(m.event==="setTitle"){
+      config.app.name=String(m.payload?.title || m.payload || "");
+      syncForm(config); render(config); emit("navigationChanged",config);
+    }
+    if(m.event==="themeChanged" && m.payload){
+      const t=m.payload;
+      const r=document.documentElement.style;
+      if(t.brand?.primaryColor) r.setProperty("--factory-primary",t.brand.primaryColor);
+      if(t.brand?.secondaryColor) r.setProperty("--factory-secondary",t.brand.secondaryColor);
+      if(t.typography?.fontFamily) r.setProperty("--factory-font-family",t.typography.fontFamily);
+      if(t.typography?.headingWeight) r.setProperty("--factory-heading-weight",t.typography.headingWeight);
+      if(t.components?.borderRadius) r.setProperty("--factory-radius",t.components.borderRadius);
+      els.status.textContent="themeChanged received from Block #003.";
+    }
+  });
+
+  try{
+    const saved=JSON.parse(localStorage.getItem("shia:block004:navigation"));
+    if(saved) config=saved;
+  }catch{}
+  activePage=config.navigation.startPage;
+  syncForm(config);
+  render(config);
+})();
+</script>
+</body>
+</html>
