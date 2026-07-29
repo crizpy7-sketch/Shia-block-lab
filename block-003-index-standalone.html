@@ -1,0 +1,316 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Theme & Brand Block #003</title>
+  <style>
+:root {
+  --factory-primary: #6D5EF5;
+  --factory-secondary: #F4F1EA;
+  --factory-font-family: Inter, system-ui, sans-serif;
+  --factory-heading-weight: 700;
+  --factory-radius: 12px;
+  --factory-gap: 12px;
+  --factory-control-height: 42px;
+  color-scheme: light dark;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: var(--factory-font-family); background: #0f1117; color: #f8fafc; }
+.block-shell { width: min(920px, 100%); margin: 0 auto; padding: 24px; }
+.block-header { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; margin-bottom:20px; }
+.eyebrow { color:#a78bfa; font-size:.76rem; font-weight:800; letter-spacing:.12em; text-transform:uppercase; }
+h1 { margin:.3rem 0 0; font-size:clamp(1.5rem,4vw,2.25rem); font-weight:var(--factory-heading-weight); }
+.status { border:1px solid #475569; border-radius:999px; padding:6px 10px; color:#cbd5e1; font-size:.75rem; }
+.layout { display:grid; grid-template-columns:minmax(0,1fr) minmax(260px,.75fr); gap:18px; }
+.panel { background:#171a23; border:1px solid #2a3040; border-radius:16px; padding:18px; box-shadow:0 18px 45px rgba(0,0,0,.22); }
+.form-grid { display:grid; grid-template-columns:1fr 1fr; gap:var(--factory-gap); }
+.field { display:grid; gap:7px; }
+.field.full { grid-column:1/-1; }
+label { color:#cbd5e1; font-size:.82rem; font-weight:700; }
+input, select { width:100%; height:var(--factory-control-height); border:1px solid #3b4254; border-radius:10px; background:#10131a; color:#f8fafc; padding:0 12px; font:inherit; }
+.color-row { display:grid; grid-template-columns:52px 1fr; gap:8px; }
+input[type=color] { padding:4px; cursor:pointer; }
+.actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:18px; }
+button { min-height:42px; border-radius:var(--factory-radius); padding:0 16px; font:700 .9rem/1 var(--factory-font-family); cursor:pointer; }
+.primary { border:1px solid var(--factory-primary); background:var(--factory-primary); color:white; }
+.secondary { border:1px solid #475569; background:transparent; color:#e2e8f0; }
+.preview { background:var(--factory-secondary); color:#111827; border-radius:var(--factory-radius); overflow:hidden; min-height:320px; }
+.preview-bar { background:var(--factory-primary); color:white; padding:18px; display:flex; align-items:center; gap:12px; }
+.preview-logo { width:42px; height:42px; border-radius:10px; object-fit:cover; background:rgba(255,255,255,.22); display:none; }
+.preview-content { padding:20px; display:grid; gap:var(--factory-gap); }
+.preview-card { background:white; border:1px solid rgba(15,23,42,.12); border-radius:var(--factory-radius); padding:16px; }
+.preview-button { min-height:var(--factory-control-height); width:100%; }
+[data-factory-button-style="outline"] .preview-button { background:transparent; color:var(--factory-primary); }
+[data-factory-button-style="soft"] .preview-button { background:color-mix(in srgb, var(--factory-primary) 18%, white); color:var(--factory-primary); border-color:transparent; }
+.console { margin-top:18px; min-height:44px; border-radius:10px; background:#0b0e14; border:1px solid #2a3040; padding:12px; font:12px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; color:#86efac; white-space:pre-wrap; }
+@media (max-width:760px) { .layout { grid-template-columns:1fr; } .form-grid { grid-template-columns:1fr; } .field.full { grid-column:auto; } .block-shell { padding:14px; } }
+
+</style>
+</head>
+<body>
+  <main class="block-shell">
+    <header class="block-header">
+      <div><div class="eyebrow">Shia App Factory</div><h1>Theme & Brand Block #003</h1></div>
+      <div class="status">v0.1.0 · Workbench</div>
+    </header>
+
+    <div class="layout">
+      <section class="panel" aria-labelledby="editor-title">
+        <h2 id="editor-title">Theme configuration</h2>
+        <form id="theme-form" novalidate>
+          <div class="form-grid">
+            <div class="field full"><label for="brand-name">Brand name</label><input id="brand-name" maxlength="60" required></div>
+            <div class="field full"><label for="logo-url">Logo URL</label><input id="logo-url" type="url" placeholder="https://…"></div>
+            <div class="field"><label for="primary-color">Primary color</label><div class="color-row"><input id="primary-picker" type="color"><input id="primary-color" pattern="#[0-9A-Fa-f]{6}"></div></div>
+            <div class="field"><label for="secondary-color">Secondary color</label><div class="color-row"><input id="secondary-picker" type="color"><input id="secondary-color" pattern="#[0-9A-Fa-f]{6}"></div></div>
+            <div class="field"><label for="font-family">Font family</label><select id="font-family"><option value="Inter, system-ui, sans-serif">Inter / System</option><option value="Georgia, serif">Georgia</option><option value="Arial, sans-serif">Arial</option><option value="'Trebuchet MS', sans-serif">Trebuchet</option></select></div>
+            <div class="field"><label for="heading-weight">Heading weight</label><select id="heading-weight"><option>500</option><option>600</option><option selected>700</option><option>800</option></select></div>
+            <div class="field"><label for="radius">Border radius</label><select id="radius"><option value="0px">Square</option><option value="6px">Small</option><option value="12px" selected>Medium</option><option value="18px">Large</option><option value="999px">Pill</option></select></div>
+            <div class="field"><label for="button-style">Button style</label><select id="button-style"><option value="solid">Solid</option><option value="outline">Outline</option><option value="soft">Soft</option></select></div>
+            <div class="field"><label for="density">Density</label><select id="density"><option value="compact">Compact</option><option value="comfortable" selected>Comfortable</option><option value="spacious">Spacious</option></select></div>
+          </div>
+          <div class="actions"><button class="primary" type="submit">Apply theme</button><button class="secondary" id="reset-button" type="button">Reset</button></div>
+        </form>
+        <div id="console" class="console" role="status" aria-live="polite">Ready.</div>
+      </section>
+
+      <section class="panel" aria-labelledby="preview-title">
+        <h2 id="preview-title">Live preview</h2>
+        <div class="preview">
+          <div class="preview-bar"><img id="preview-logo" class="preview-logo" alt=""><strong id="preview-name">Untitled App</strong></div>
+          <div class="preview-content"><div class="preview-card"><strong>Reusable block preview</strong><p>Forms and Records consume the same shared tokens.</p><button class="primary preview-button">Primary action</button></div></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <script>
+(function (global) {
+  'use strict';
+
+  const STORAGE_KEY = 'shia.theme-brand-003.v0.1.0';
+  const EVENT_SOURCE = 'shia-block';
+
+  const DEFAULT_THEME = Object.freeze({
+    type: 'ThemeConfig',
+    version: '1.0',
+    brand: {
+      name: 'Untitled App',
+      logoUrl: '',
+      primaryColor: '#6D5EF5',
+      secondaryColor: '#F4F1EA'
+    },
+    typography: {
+      fontFamily: 'Inter, system-ui, sans-serif',
+      headingWeight: 700
+    },
+    components: {
+      borderRadius: '12px',
+      buttonStyle: 'solid',
+      density: 'comfortable'
+    }
+  });
+
+  const clone = (value) => JSON.parse(JSON.stringify(value));
+
+  function isHexColor(value) {
+    return typeof value === 'string' && /^#[0-9a-fA-F]{6}$/.test(value);
+  }
+
+  function sanitizeText(value, fallback, maxLength) {
+    if (typeof value !== 'string') return fallback;
+    const clean = value.trim().slice(0, maxLength);
+    return clean || fallback;
+  }
+
+  function sanitizeUrl(value) {
+    if (!value || typeof value !== 'string') return '';
+    const trimmed = value.trim();
+    try {
+      const url = new URL(trimmed, global.location ? global.location.href : 'https://example.invalid');
+      return ['http:', 'https:', 'data:'].includes(url.protocol) ? trimmed : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function normalizeTheme(input) {
+    const source = input && typeof input === 'object' ? input : {};
+    const brand = source.brand || {};
+    const typography = source.typography || {};
+    const components = source.components || {};
+
+    return {
+      type: 'ThemeConfig',
+      version: '1.0',
+      brand: {
+        name: sanitizeText(brand.name, DEFAULT_THEME.brand.name, 60),
+        logoUrl: sanitizeUrl(brand.logoUrl),
+        primaryColor: isHexColor(brand.primaryColor) ? brand.primaryColor.toUpperCase() : DEFAULT_THEME.brand.primaryColor,
+        secondaryColor: isHexColor(brand.secondaryColor) ? brand.secondaryColor.toUpperCase() : DEFAULT_THEME.brand.secondaryColor
+      },
+      typography: {
+        fontFamily: sanitizeText(typography.fontFamily, DEFAULT_THEME.typography.fontFamily, 100),
+        headingWeight: [400, 500, 600, 700, 800].includes(Number(typography.headingWeight))
+          ? Number(typography.headingWeight)
+          : DEFAULT_THEME.typography.headingWeight
+      },
+      components: {
+        borderRadius: ['0px', '6px', '12px', '18px', '999px'].includes(components.borderRadius)
+          ? components.borderRadius
+          : DEFAULT_THEME.components.borderRadius,
+        buttonStyle: ['solid', 'outline', 'soft'].includes(components.buttonStyle)
+          ? components.buttonStyle
+          : DEFAULT_THEME.components.buttonStyle,
+        density: ['compact', 'comfortable', 'spacious'].includes(components.density)
+          ? components.density
+          : DEFAULT_THEME.components.density
+      }
+    };
+  }
+
+  function validateTheme(input) {
+    const errors = [];
+    if (!input || typeof input !== 'object') errors.push('Theme must be an object.');
+    if (input?.brand?.primaryColor && !isHexColor(input.brand.primaryColor)) errors.push('Primary color must be a 6-digit hex color.');
+    if (input?.brand?.secondaryColor && !isHexColor(input.brand.secondaryColor)) errors.push('Secondary color must be a 6-digit hex color.');
+    if (input?.brand?.name && String(input.brand.name).trim().length > 60) errors.push('Brand name must be 60 characters or fewer.');
+    return { valid: errors.length === 0, errors };
+  }
+
+  function toCssTokens(themeInput) {
+    const theme = normalizeTheme(themeInput);
+    const density = {
+      compact: { gap: '8px', controlHeight: '36px' },
+      comfortable: { gap: '12px', controlHeight: '42px' },
+      spacious: { gap: '18px', controlHeight: '48px' }
+    }[theme.components.density];
+
+    return {
+      '--factory-brand-name': JSON.stringify(theme.brand.name),
+      '--factory-primary': theme.brand.primaryColor,
+      '--factory-secondary': theme.brand.secondaryColor,
+      '--factory-font-family': theme.typography.fontFamily,
+      '--factory-heading-weight': String(theme.typography.headingWeight),
+      '--factory-radius': theme.components.borderRadius,
+      '--factory-gap': density.gap,
+      '--factory-control-height': density.controlHeight,
+      '--factory-button-style': theme.components.buttonStyle
+    };
+  }
+
+  function applyTheme(themeInput, root) {
+    const theme = normalizeTheme(themeInput);
+    const target = root || global.document?.documentElement;
+    if (!target?.style) return theme;
+    const tokens = toCssTokens(theme);
+    Object.entries(tokens).forEach(([key, value]) => target.style.setProperty(key, value));
+    target.dataset.factoryButtonStyle = theme.components.buttonStyle;
+    return theme;
+  }
+
+  class ThemeBrandBlock extends EventTarget {
+    constructor(options = {}) {
+      super();
+      this.id = options.id || 'theme-brand-003';
+      this.storage = options.storage || global.localStorage;
+      this.theme = clone(DEFAULT_THEME);
+    }
+
+    loadStored() {
+      try {
+        const raw = this.storage?.getItem(STORAGE_KEY);
+        if (raw) this.theme = normalizeTheme(JSON.parse(raw));
+      } catch (_) {
+        this.theme = clone(DEFAULT_THEME);
+      }
+      return clone(this.theme);
+    }
+
+    loadTheme(payload, options = {}) {
+      const validation = validateTheme(payload);
+      if (!validation.valid) {
+        this.emit('validationError', { errors: validation.errors });
+        return { ok: false, errors: validation.errors };
+      }
+      this.theme = normalizeTheme(payload);
+      applyTheme(this.theme, options.root);
+      if (options.persist !== false) this.persist();
+      if (options.emit !== false) this.emit('themeChanged', clone(this.theme));
+      return { ok: true, theme: clone(this.theme) };
+    }
+
+    resetTheme(options = {}) {
+      this.theme = clone(DEFAULT_THEME);
+      applyTheme(this.theme, options.root);
+      try { this.storage?.removeItem(STORAGE_KEY); } catch (_) {}
+      if (options.emit !== false) this.emit('themeReset', clone(this.theme));
+      return clone(this.theme);
+    }
+
+    persist() {
+      try { this.storage?.setItem(STORAGE_KEY, JSON.stringify(this.theme)); } catch (_) {}
+    }
+
+    emit(name, payload) {
+      this.dispatchEvent(new CustomEvent(name, { detail: payload }));
+      const message = {
+        source: EVENT_SOURCE,
+        blockId: this.id,
+        event: name,
+        payload,
+        timestamp: new Date().toISOString()
+      };
+      if (global.parent && global.parent !== global) global.parent.postMessage(message, '*');
+    }
+
+    handleInput(name, payload) {
+      if (name === 'loadTheme') return this.loadTheme(payload);
+      if (name === 'resetTheme') return this.resetTheme();
+      return { ok: false, errors: [`Unsupported input: ${name}`] };
+    }
+  }
+
+  global.ShiaThemeBrand003 = {
+    DEFAULT_THEME,
+    ThemeBrandBlock,
+    normalizeTheme,
+    validateTheme,
+    toCssTokens,
+    applyTheme
+  };
+})(window);
+
+</script>
+  <script>
+    const api = new ShiaThemeBrand003.ThemeBrandBlock();
+    const $ = (id) => document.getElementById(id);
+    const fields = {
+      name: $('brand-name'), logoUrl: $('logo-url'), primary: $('primary-color'), primaryPicker: $('primary-picker'),
+      secondary: $('secondary-color'), secondaryPicker: $('secondary-picker'), font: $('font-family'),
+      weight: $('heading-weight'), radius: $('radius'), buttonStyle: $('button-style'), density: $('density')
+    };
+
+    function formTheme() {
+      return { type:'ThemeConfig', version:'1.0', brand:{ name:fields.name.value, logoUrl:fields.logoUrl.value, primaryColor:fields.primary.value, secondaryColor:fields.secondary.value }, typography:{ fontFamily:fields.font.value, headingWeight:Number(fields.weight.value) }, components:{ borderRadius:fields.radius.value, buttonStyle:fields.buttonStyle.value, density:fields.density.value } };
+    }
+    function render(theme) {
+      fields.name.value=theme.brand.name; fields.logoUrl.value=theme.brand.logoUrl; fields.primary.value=theme.brand.primaryColor; fields.primaryPicker.value=theme.brand.primaryColor; fields.secondary.value=theme.brand.secondaryColor; fields.secondaryPicker.value=theme.brand.secondaryColor; fields.font.value=theme.typography.fontFamily; fields.weight.value=theme.typography.headingWeight; fields.radius.value=theme.components.borderRadius; fields.buttonStyle.value=theme.components.buttonStyle; fields.density.value=theme.components.density;
+      $('preview-name').textContent=theme.brand.name;
+      const logo=$('preview-logo'); logo.src=theme.brand.logoUrl; logo.style.display=theme.brand.logoUrl?'block':'none';
+      ShiaThemeBrand003.applyTheme(theme);
+    }
+    function log(message, payload) { $('console').textContent = message + (payload ? '\n' + JSON.stringify(payload,null,2) : ''); }
+
+    fields.primaryPicker.addEventListener('input', e => { fields.primary.value=e.target.value.toUpperCase(); render(ShiaThemeBrand003.normalizeTheme(formTheme())); });
+    fields.secondaryPicker.addEventListener('input', e => { fields.secondary.value=e.target.value.toUpperCase(); render(ShiaThemeBrand003.normalizeTheme(formTheme())); });
+    document.querySelectorAll('input,select').forEach(el => el.addEventListener('input', () => render(ShiaThemeBrand003.normalizeTheme(formTheme()))));
+    $('theme-form').addEventListener('submit', e => { e.preventDefault(); const result=api.loadTheme(formTheme()); if(result.ok){ render(result.theme); log('themeChanged emitted.',result.theme); } else log('Validation failed.',result.errors); });
+    $('reset-button').addEventListener('click', () => { const theme=api.resetTheme(); render(theme); log('themeReset emitted.',theme); });
+    window.addEventListener('message', event => { const message=event.data; if(!message || message.source!=='shia-factory') return; const result=api.handleInput(message.input,message.payload); log('Factory input received: '+message.input,result); if(result?.theme) render(result.theme); });
+    api.addEventListener('validationError', e => log('validationError emitted.',e.detail));
+    const initial=api.loadStored(); render(initial); log('Block initialized.',initial);
+  </script>
+</body>
+</html>
