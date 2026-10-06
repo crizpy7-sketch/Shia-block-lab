@@ -1,6 +1,7 @@
 """Read the new container's own limits, await release, then exec fixed fixtures.
 
-This file is prepared only. It has not been run in a container.
+This diagnostic revision is prepared only; the predecessor refused a mount.
+It preserves the denial policy and reports one bounded refusal observation.
 """
 import hashlib
 import json
@@ -16,6 +17,61 @@ BASE = Path('/payload')
 MEMORY = 268435456
 SCRATCH = 16777216
 PIDS = 32
+
+
+# The complete refusal record must fit this smaller ceiling, within the
+# unchanged 8192-byte preflight/export limit. Diagnostics never permit release.
+MOUNT_REFUSAL_BYTES = 4096
+
+
+class MountRefusal(ValueError):
+    def __init__(self, diagnostic=None):
+        super().__init__('OTHER_WRITABLE_MOUNT')
+        self.diagnostic = diagnostic
+
+
+def bounded_text(value, cap):
+    return {'value': value[:cap], 'truncated': len(value) > cap,
+            'characters_observed': len(value)}
+
+
+def mount_refusal(point, entry, info, writable):
+    # Reuse the exact row/stat/access observations used by the rejecting check.
+    # No reread, extra stat/access call, file-content read or process is added.
+    diagnostic = None
+    try:
+        details = {
+            'schema': 1,
+            'mount_point': bounded_text(point, 256),
+            'filesystem_type': bounded_text(entry['type'], 32),
+            'mount_flags': bounded_text(','.join(entry['flags']), 128),
+            'super_options': bounded_text(','.join(entry['super']), 128),
+            'mountinfo_row': bounded_text(entry['row'], 512),
+            'lstat': {
+                'mode': info.st_mode,
+                'mode_text': stat.filemode(info.st_mode),
+                'uid': info.st_uid, 'gid': info.st_gid,
+                'device': info.st_dev, 'inode': info.st_ino,
+                'rdev_major': os.major(info.st_rdev),
+                'rdev_minor': os.minor(info.st_rdev),
+                'follows_symlinks': False,
+            },
+            'access': {'mode': 'W_OK', 'effective_ids': True,
+                       'follows_symlinks': True, 'writable': writable},
+            'atomic_identity_proof': False,
+            'scope': 'FIRST_REFUSING_MOUNT_OBSERVATIONS_ONLY',
+        }
+        trial = {'record': 'PHASE7_CONTAINER_PREFLIGHT', 'status': 'REFUSED',
+                 'reason': 'OTHER_WRITABLE_MOUNT', 'fixtures_started': False,
+                 'mount_diagnostic': details}
+        raw = json.dumps(trial, sort_keys=True, separators=(',', ':'),
+                         allow_nan=False).encode()
+        if len(raw) + 1 <= MOUNT_REFUSAL_BYTES:
+            diagnostic = details
+    except Exception:
+        # An unavailable or oversized diagnostic retains the original refusal.
+        pass
+    return MountRefusal(diagnostic)
 
 
 def need(condition, code):
@@ -57,7 +113,7 @@ def mounts():
         point = unescape_mount(fields[4])
         need(point not in result, 'DUPLICATE_MOUNTPOINT')
         result[point] = {'flags': fields[5].split(','), 'type': fields[split + 1],
-                         'super': fields[split + 3].split(',')}
+                         'super': fields[split + 3].split(','), 'row': line}
     return result
 
 
@@ -110,7 +166,9 @@ def check():
         info = Path(point).lstat()
         if point in masked_nulls and stat.S_ISCHR(info.st_mode) and info.st_rdev == os.makedev(1, 3):
             continue
-        need(not os.access(point, os.W_OK, effective_ids=True), 'OTHER_WRITABLE_MOUNT')
+        writable = os.access(point, os.W_OK, effective_ids=True)
+        if writable:
+            raise mount_refusal(point, entry, info, writable)
     for entry in Path('/dev').iterdir():
         info = entry.lstat()
         need(not (stat.S_ISREG(info.st_mode) and os.access(entry, os.W_OK, effective_ids=True)), 'DEV_REGULAR_FILE')
@@ -153,10 +211,13 @@ def main():
         os.execve('/usr/local/bin/python3', ['/usr/local/bin/python3', '-I', '-S', '-B',
                   '/payload/qualification_runner.py'], {'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C'})
     except BaseException as error:
-        code = str(error) if type(error) is ValueError and re.fullmatch(r'[A-Z_]{1,64}', str(error)) else type(error).__name__
+        code = str(error) if type(error) in (ValueError, MountRefusal) and re.fullmatch(r'[A-Z_]{1,64}', str(error)) else type(error).__name__
         try:
-            emit({'record': 'PHASE7_CONTAINER_PREFLIGHT', 'status': 'REFUSED', 'reason': code,
-                  'fixtures_started': False})
+            refusal = {'record': 'PHASE7_CONTAINER_PREFLIGHT', 'status': 'REFUSED',
+                       'reason': code, 'fixtures_started': False}
+            if type(error) is MountRefusal and error.diagnostic is not None:
+                refusal['mount_diagnostic'] = error.diagnostic
+            emit(refusal)
         except BaseException:
             pass
         return 1
