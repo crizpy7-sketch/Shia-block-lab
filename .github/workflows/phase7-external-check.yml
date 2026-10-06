@@ -1,0 +1,82 @@
+name: Phase 7 bounded external check
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_commit:
+        description: Exact reviewed checker commit (40 lowercase hex)
+        required: true
+        type: string
+      request_json:
+        description: Public nonsecret strict association JSON; never paste a GATE_READY token
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7-external-check
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: >-
+      github.repository_id == '1316595124' &&
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == '1' &&
+      inputs.approved_commit == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Read exact reviewed checker
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+          sparse-checkout: phase7_external_checker
+
+      - name: One bounded observation
+        env:
+          PHASE7_APPROVED_COMMIT: ${{ inputs.approved_commit }}
+          PHASE7_REQUEST: ${{ inputs.request_json }}
+          PHASE7_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        shell: bash
+        run: |
+          timeout -k 1s 45s python3 -I -S -B - <<'PY'
+          import hashlib, json, os, pathlib, re, sys
+          root = pathlib.Path('phase7_external_checker').resolve()
+          manifest = root / 'manifest.json'
+          expected_manifest = '3cb48c25f8d608a11536f8e6799f8008cae0dc9d74dcff99692a11709dd1539e'
+          def refuse():
+              raise SystemExit('PHASE7_SOURCE_BINDING_REFUSED')
+          if manifest.is_symlink() or manifest.stat().st_size > 4096:
+              refuse()
+          raw = manifest.read_bytes()
+          if hashlib.sha256(raw).hexdigest() != expected_manifest:
+              refuse()
+          expected = json.loads(raw)['files']
+          if set(expected) != {'__init__.py', 'contract.py', 'main.py', 'response.py', 'transport.py'}:
+              refuse()
+          for name, digest in expected.items():
+              path = root / 'checker' / name
+              if path.is_symlink() or not path.resolve().is_relative_to(root) or path.stat().st_size > 65536:
+                  refuse()
+              if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                  refuse()
+          approved = os.environ.get('PHASE7_APPROVED_COMMIT', '')
+          if not re.fullmatch('[0-9a-f]{40}', approved) or approved != os.environ.get('GITHUB_SHA'):
+              refuse()
+          keys = ('GITHUB_REPOSITORY', 'GITHUB_REPOSITORY_ID', 'GITHUB_EVENT_NAME',
+                  'GITHUB_REF', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA',
+                  'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'PHASE7_APPROVED_COMMIT',
+                  'PHASE7_REQUEST', 'PHASE7_REPOSITORY_VISIBILITY')
+          clean = {key: os.environ[key] for key in keys if key in os.environ}
+          clean.update(PATH='/usr/local/bin:/usr/bin:/bin', LANG='C.UTF-8')
+          os.execve(sys.executable, [sys.executable, '-I', '-S', '-B', str(root / 'checker' / 'main.py')], clean)
+          PY

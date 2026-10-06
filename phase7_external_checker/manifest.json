@@ -1,0 +1,11 @@
+{
+  "schema": 1,
+  "scope": "FIXED_EXTERNAL_CHECKER_SOURCE_BINDING_NOT_AUTHORITY",
+  "files": {
+    "__init__.py": "86256f60bfdd072443b76a968cf089e68c371f82fa8aa80d05637726fb30d8a0",
+    "contract.py": "d80878a3a458a416309de5c60de8275d417b2c4f88873794600891f6555a4ad8",
+    "main.py": "6812977fff1913676cd2a4f8296667140eec71c7e735d73d24f8b8c87ec37d0a",
+    "response.py": "050ea716e5313d320804f86e5fe697af30a1d01dcf3e30194765aa240d632659",
+    "transport.py": "bff6a3b51701b28eb715fef758346f818d54da480f939a44014182083310e288"
+  }
+}
