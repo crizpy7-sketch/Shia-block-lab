@@ -1,0 +1,77 @@
+name: Phase 7 bounded transport qualification
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_commit:
+        description: Exact reviewed publication commit SHA (40 lowercase hex characters)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7-transport-qualification
+  cancel-in-progress: false
+
+jobs:
+  qualify:
+    if: >-
+      github.repository_id == '1316595124' &&
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == '1' &&
+      inputs.approved_commit == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Read exact reviewed sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+          sparse-checkout: phase7_github_workflow
+
+      - name: Verify source bytes and supervise one bounded run
+        env:
+          PHASE7_APPROVED_COMMIT: ${{ inputs.approved_commit }}
+          PHASE7_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        shell: bash
+        run: |
+          python3 -I -S -B - <<'PY'
+          import hashlib, json, os, pathlib, re, sys
+          root = pathlib.Path('phase7_github_workflow').resolve()
+          expected = {
+              'contract.json': '81a46472db25db38023c8e51d56fec536720135c619fbfb863edc7e659b5cc8b',
+              'host_supervisor.py': 'fc403f0acde485f1418ba97e9470ca6a3d64bc9cb1a3903ac82b1d594ce0ace1',
+          }
+          for name, digest in expected.items():
+              path = root / name
+              if path.is_symlink() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                  raise SystemExit('PHASE7_SOURCE_BINDING_REFUSED')
+          contract = json.loads((root / 'contract.json').read_bytes())
+          payload = root / 'payload'
+          for name, digest in contract['source_sha256'].items():
+              path = payload / name
+              if path.is_symlink() or not path.resolve().is_relative_to(payload):
+                  raise SystemExit('PHASE7_SOURCE_PATH_REFUSED')
+              if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+                  raise SystemExit('PHASE7_PAYLOAD_BINDING_REFUSED')
+          approved = os.environ.get('PHASE7_APPROVED_COMMIT', '')
+          if not re.fullmatch('[0-9a-f]{40}', approved) or approved != os.environ.get('GITHUB_SHA'):
+              raise SystemExit('PHASE7_COMMIT_REFUSED')
+          keys = ('GITHUB_REPOSITORY', 'GITHUB_REPOSITORY_ID', 'GITHUB_EVENT_NAME',
+                  'GITHUB_REF', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA',
+                  'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB', 'GITHUB_ACTOR',
+                  'RUNNER_TEMP', 'RUNNER_OS', 'RUNNER_ARCH', 'ImageOS', 'ImageVersion',
+                  'PHASE7_APPROVED_COMMIT', 'PHASE7_REPOSITORY_VISIBILITY')
+          clean = {key: os.environ[key] for key in keys if key in os.environ}
+          clean.update(PATH='/usr/local/bin:/usr/bin:/bin', LANG='C.UTF-8')
+          os.execve(sys.executable, [sys.executable, '-I', '-S', '-B',
+                    str(root / 'host_supervisor.py')], clean)
+          PY

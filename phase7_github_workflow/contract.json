@@ -1,0 +1,67 @@
+{
+  "allowance": {
+    "automatic_retry": false,
+    "enforcement": "OWNER_RECORDED_ONE_DISPATCH; RUN_ATTEMPT_CHECK_ALONE_DOES_NOT_PREVENT_NEW_DISPATCH",
+    "manual_dispatches": 1,
+    "status": "NOT_AUTHORIZED_NOT_CONSUMED"
+  },
+  "deadlines_seconds": {
+    "disposal_observation": 5,
+    "final_log_flush": 1,
+    "image_pull": 45,
+    "session_emergency_separate": 2,
+    "session_original": 2,
+    "setup": 30,
+    "workflow_minutes": 3,
+    "workload": 25
+  },
+  "expected_ref": "refs/heads/main",
+  "historical_closure": "UNCHANGED_UNKNOWN",
+  "image_digest": "docker.io/library/python@sha256:2986c55feb36e6cae00fa1fefb454283e4b33f35e75ff8bdd123b134130be301",
+  "image_metadata_observed_date": "2026-10-06",
+  "image_metadata_source": "https://registry.hub.docker.com/v2/repositories/library/python/tags/3.12.12-slim-bookworm",
+  "image_platform": "linux/amd64",
+  "image_tag_provenance": "python:3.12.12-slim-bookworm",
+  "observed_main_before_publication": "983396656bd02ecdb6a7d851fcb25da66ab106ce",
+  "phase7_acceptance": "BLOCKED",
+  "proposal_id": "phase7-gh-six-case-20261006",
+  "repository": "crizpy7-sketch/Shia-block-lab",
+  "repository_id": "1316595124",
+  "resource_contract": {
+    "cpu_quota": 1,
+    "docker_cli_attempts_max": 10,
+    "fixture_children_concurrent_max": 2,
+    "fixture_children_total_max": 12,
+    "memory_bytes": 268435456,
+    "outer_aggregate_pid_cap": "NOT_ESTABLISHED",
+    "outer_resources_documented": {
+      "disk_gb": 14,
+      "memory_gb": 16,
+      "vcpus": 4
+    },
+    "outer_runner": "STANDARD_GITHUB_UBUNTU_24_04",
+    "pids_max": 32,
+    "scope": "WORKLOAD_CONTAINER_ONLY_EXPLICIT_REVISION_OF_WHOLE_ENVIRONMENT_PROPOSAL",
+    "scratch_bytes": 16777216,
+    "swap_bytes": 0
+  },
+  "schema": 1,
+  "scope": "UNPUBLISHED_PROPOSAL_EXECUTION_REQUIRES_OWNER_AUTHORIZATION",
+  "source_sha256": {
+    "container_preflight.py": "3856200d2ff4c21935b01014e28e77ef9a1d08e2aa514a224cf45cfabaf44325",
+    "dependencies/event_adapter.py": "6d52fb2a32a0b81df30bc0d30c2ec820421c3048c990806c2af808d5eb83fae8",
+    "fake_child.py": "ed9d43d3f1a05cad6479a6500e08e0aaab44876ac34ff3e4ef92243ccfb27b8d",
+    "manifest.json": "aebb576ec4f13f1a3451b51579cab31cbfd08e20437d8174df24ba0316b8cdaf",
+    "qualification_runner.py": "cb493090a22c27769215455f74e562ee7e9af63b1b2137e52ef7e13e0260b6e6",
+    "transport_adapter.py": "15f1709aeda2734cd0e1b514d25311c022d630a84330c8b017e7fbc2363b6fd4"
+  },
+  "spend": {
+    "additional_usd": 0,
+    "no_artifact_upload": true,
+    "no_cache_upload": true,
+    "no_larger_runners": true,
+    "no_paid_external_calls": true,
+    "requires_public_repository": true
+  },
+  "workflow_ref": "crizpy7-sketch/Shia-block-lab/.github/workflows/phase7-transport-qualification.yml@refs/heads/main"
+}
