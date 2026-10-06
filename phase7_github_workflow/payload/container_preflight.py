@@ -157,7 +157,7 @@ def check():
     # containment or a claim of a 16 MiB bound on all kernel state.
     pseudo = {'proc', 'sysfs', 'cgroup2', 'devpts', 'mqueue'}
     masked_nulls = {'/proc/interrupts', '/proc/kcore', '/proc/keys',
-                    '/proc/timer_list', '/proc/sched_debug'}
+                    '/proc/timer_list', '/proc/sched_debug', '/proc/latency_stats'}
     for point, entry in layout.items():
         if point == '/tmp' or 'ro' in entry['flags'] or entry['type'] in pseudo:
             continue
