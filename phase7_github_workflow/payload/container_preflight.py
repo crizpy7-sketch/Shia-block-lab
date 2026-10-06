@@ -207,6 +207,8 @@ def main():
         if fd != 0:
             os.dup2(fd, 0)
             os.close(fd)
+        # Preserve read-only null stdin across exec, including the fd == 0 case.
+        os.set_inheritable(0, True)
         os.chdir('/tmp')
         os.execve('/usr/local/bin/python3', ['/usr/local/bin/python3', '-I', '-S', '-B',
                   '/payload/qualification_runner.py'], {'PATH': '/usr/local/bin:/usr/bin:/bin', 'LANG': 'C'})
