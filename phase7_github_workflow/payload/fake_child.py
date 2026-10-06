@@ -17,7 +17,8 @@ def main(args):
         return 64
     signal.signal(signal.SIGALRM, lambda *_: os._exit(124))
     signal.alarm(ttl)  # Independent of TERM; backup only, not timely closure proof.
-    if mode in {'ignore_term', 'stall', 'no_ready'}:
+    # Oversize capture precedes EOF; let that fixture return despite collector TERM.
+    if mode in {'ignore_term', 'stall', 'no_ready', 'oversize_result'}:
         signal.signal(signal.SIGTERM, signal.SIG_IGN)
     decoder = None
     if mode in {'normal', 'bad_result', 'oversize_result'}:

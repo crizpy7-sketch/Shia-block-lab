@@ -16,7 +16,7 @@ import types
 HERE = Path(__file__).resolve().parent
 SOURCES = {
     'transport_adapter.py': '15f1709aeda2734cd0e1b514d25311c022d630a84330c8b017e7fbc2363b6fd4',
-    'fake_child.py': 'ed9d43d3f1a05cad6479a6500e08e0aaab44876ac34ff3e4ef92243ccfb27b8d',
+    'fake_child.py': '29a1fde5f496983422e53fdd1b656c450d3b35fbdab50ec6ec9e8d04ece4cea7',
     'dependencies/event_adapter.py': '6d52fb2a32a0b81df30bc0d30c2ec820421c3048c990806c2af808d5eb83fae8',
 }
 CASE_NAMES = ('NORMAL_VM', 'NORMAL_PSI', 'MALFORMED_RESULT',

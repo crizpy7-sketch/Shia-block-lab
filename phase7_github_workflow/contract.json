@@ -50,9 +50,9 @@
   "source_sha256": {
     "container_preflight.py": "0560a43766e11729dcdb52d5fdd5b70f53569ac38e1991761de837e0250df891",
     "dependencies/event_adapter.py": "6d52fb2a32a0b81df30bc0d30c2ec820421c3048c990806c2af808d5eb83fae8",
-    "fake_child.py": "ed9d43d3f1a05cad6479a6500e08e0aaab44876ac34ff3e4ef92243ccfb27b8d",
-    "manifest.json": "170228ee16e1053d08c8eda74dc4e87ced7d3c02205b472e68dc832e52274484",
-    "qualification_runner.py": "cb493090a22c27769215455f74e562ee7e9af63b1b2137e52ef7e13e0260b6e6",
+    "fake_child.py": "29a1fde5f496983422e53fdd1b656c450d3b35fbdab50ec6ec9e8d04ece4cea7",
+    "manifest.json": "6223d335d0a44a00cfc12b8bf07d2a42e3b26018d6ca274d974e5b237e003a32",
+    "qualification_runner.py": "b01d647139145e29e11f9a70577810ca562930df7e266e4e9f813677848c9aa3",
     "transport_adapter.py": "15f1709aeda2734cd0e1b514d25311c022d630a84330c8b017e7fbc2363b6fd4"
   },
   "spend": {

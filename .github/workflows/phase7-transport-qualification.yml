@@ -47,7 +47,7 @@ jobs:
           import hashlib, json, os, pathlib, re, sys
           root = pathlib.Path('phase7_github_workflow').resolve()
           expected = {
-              'contract.json': 'fb3708fb7d75b587e36005d9b1d0efdb3cfffe607bcaaaedf03e8cf6e2a67d35',
+              'contract.json': '82f1c7f17196bc387c61009d80603b2bc7ec68218efe9b1d75a7691a9665f570',
               'host_supervisor.py': 'fc403f0acde485f1418ba97e9470ca6a3d64bc9cb1a3903ac82b1d594ce0ace1',
           }
           for name, digest in expected.items():
