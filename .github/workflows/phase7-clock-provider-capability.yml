@@ -1,0 +1,62 @@
+name: Phase 7 existing clock provider capability
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_commit:
+        description: Exact reviewed provider-check commit (40 lowercase hex)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7-clock-provider-capability
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: >-
+      github.repository_id == '1316595124' &&
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == '1' &&
+      inputs.approved_commit == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Read exact reviewed capability sources
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+          sparse-checkout: |
+            phase7_clock_sampler
+            phase7_clock_provider_adapter
+            phase7_clock_provider_executor
+
+      - name: One bounded existing-provider observation
+        env:
+          PHASE7_APPROVED_COMMIT: ${{ inputs.approved_commit }}
+          PHASE7_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        shell: bash
+        run: |
+          timeout --signal=KILL 20s python3 -I -S -B - <<'PY'
+          import hashlib, pathlib, sys, types
+          path = pathlib.Path('phase7_clock_provider_executor/job_entry.py')
+          if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
+              raise SystemExit('PROVIDER_ENTRY_SOURCE_REFUSED')
+          source = path.read_bytes()
+          expected = '3d531c1b229eb9d910c594182f53e6f54c5823ba2486b54024cc8cedf8e712df'
+          if hashlib.sha256(source).hexdigest() != expected:
+              raise SystemExit('PROVIDER_ENTRY_DIGEST_REFUSED')
+          module = types.ModuleType('phase7_provider_entry_bound')
+          sys.modules[module.__name__] = module
+          exec(compile(source, '<reviewed-provider-entry>', 'exec'), module.__dict__)
+          raise SystemExit(module.main())
+          PY
