@@ -1,0 +1,105 @@
+name: Phase 7 clock model feasibility
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_commit:
+        description: Exact reviewed clock sampler commit (40 lowercase hex)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7-clock-feasibility
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: >-
+      github.repository_id == '1316595124' &&
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == '1' &&
+      inputs.approved_commit == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Read exact reviewed sampler
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+          sparse-checkout: phase7_clock_sampler
+
+      - name: One read-only clock model observation
+        env:
+          PHASE7_APPROVED_COMMIT: ${{ inputs.approved_commit }}
+          PHASE7_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        shell: bash
+        run: |
+          timeout -k 1s 5s python3 -I -S -B - <<'PY'
+          import hashlib, json, os, pathlib, re, sys, types
+          def refuse():
+              raise SystemExit('PHASE7_CLOCK_SOURCE_BINDING_REFUSED')
+          expected = '3305111d412ce1726282ee8cf8322b975cb252c15287bf57b8075f2c552ec385'
+          path = pathlib.Path('phase7_clock_sampler/sampler.py')
+          if path.is_symlink() or path.stat().st_size > 32768:
+              refuse()
+          source = path.read_bytes()
+          if hashlib.sha256(source).hexdigest() != expected:
+              refuse()
+          approved = os.environ.get('PHASE7_APPROVED_COMMIT', '')
+          if not re.fullmatch('[0-9a-f]{40}', approved):
+              refuse()
+          fixed = {
+              'GITHUB_REPOSITORY': 'crizpy7-sketch/Shia-block-lab',
+              'GITHUB_REPOSITORY_ID': '1316595124',
+              'GITHUB_EVENT_NAME': 'workflow_dispatch',
+              'GITHUB_REF': 'refs/heads/main',
+              'GITHUB_SHA': approved,
+              'GITHUB_WORKFLOW_SHA': approved,
+              'GITHUB_WORKFLOW_REF': 'crizpy7-sketch/Shia-block-lab/.github/workflows/phase7-clock-feasibility.yml@refs/heads/main',
+              'GITHUB_RUN_ATTEMPT': '1',
+              'GITHUB_JOB': 'observe',
+              'PHASE7_REPOSITORY_VISIBILITY': 'public',
+              'RUNNER_OS': 'Linux',
+              'RUNNER_ARCH': 'X64',
+          }
+          if any(os.environ.get(k) != v for k, v in fixed.items()):
+              refuse()
+          run_id = os.environ.get('GITHUB_RUN_ID', '')
+          if not re.fullmatch('[1-9][0-9]{0,19}', run_id):
+              refuse()
+          association = dict(fixed, GITHUB_RUN_ID=run_id)
+          association_bytes = json.dumps(association, sort_keys=True, separators=(',', ':')).encode('ascii')
+          os.environ.clear()
+          os.environ.update(PATH='/usr/local/bin:/usr/bin:/bin', LANG='C.UTF-8')
+          module = types.ModuleType('phase7_clock_sampler_bound')
+          exec(compile(source, '<reviewed-clock-sampler>', 'exec'), module.__dict__)
+          observation = module.collect_native()
+          encoded_observation = module.encode_result(observation)
+          record = {
+              'schema': 1,
+              'record': 'CLOCK_MODEL_FEASIBILITY_JOB',
+              'source_sha256': expected,
+              'runtime_binding_kind': 'GITHUB_JOB_ATTEMPT_ASSOCIATION_NOT_MACHINE_ATTESTATION',
+              'runtime_association': association,
+              'runtime_association_sha256': hashlib.sha256(association_bytes).hexdigest(),
+              'observation_sha256': hashlib.sha256(encoded_observation).hexdigest(),
+              'observation': observation,
+              'control_authority': 'NONE',
+              'relative_alignment_established': False,
+              'phase7_acceptance': 'BLOCKED',
+          }
+          output = (json.dumps(record, sort_keys=True, separators=(',', ':')) + '\n').encode('ascii')
+          if len(output) > 12288:
+              refuse()
+          sys.stdout.buffer.write(output)
+          raise SystemExit(0 if observation['status'] == 'KERNEL_MODEL_OBSERVED' else 2)
+          PY
