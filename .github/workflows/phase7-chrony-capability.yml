@@ -1,0 +1,60 @@
+name: Phase 7 existing chrony capability
+
+on:
+  workflow_dispatch:
+    inputs:
+      approved_commit:
+        description: Exact reviewed inspection commit (40 lowercase hex)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: phase7-chrony-capability
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    if: >-
+      github.repository_id == '1316595124' &&
+      github.event.repository.private == false &&
+      github.event.repository.visibility == 'public' &&
+      github.ref == 'refs/heads/main' &&
+      github.run_attempt == '1' &&
+      inputs.approved_commit == github.sha
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Read exact reviewed inspection source
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 1
+          persist-credentials: false
+          submodules: false
+          lfs: false
+          sparse-checkout: |
+            phase7_chrony_capability_probe
+
+      - name: One bounded existing chrony inspection
+        env:
+          PHASE7_APPROVED_COMMIT: ${{ inputs.approved_commit }}
+          PHASE7_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
+        shell: bash
+        run: |
+          timeout --signal=KILL 20s python3 -I -S -B - <<'PY'
+          import hashlib, pathlib, sys, types
+          path = pathlib.Path('phase7_chrony_capability_probe/entry.py')
+          if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
+              raise SystemExit('CHRONY_ENTRY_SOURCE_REFUSED')
+          source = path.read_bytes()
+          expected = '3db77f719d05a70ea4ff93cebf69b6789523be2479ed5832b809d6939bec0b89'
+          if hashlib.sha256(source).hexdigest() != expected:
+              raise SystemExit('CHRONY_ENTRY_DIGEST_REFUSED')
+          module = types.ModuleType('phase7_chrony_entry_bound')
+          sys.modules[module.__name__] = module
+          exec(compile(source, '<reviewed-chrony-entry>', 'exec'), module.__dict__)
+          raise SystemExit(module.main())
+          PY
