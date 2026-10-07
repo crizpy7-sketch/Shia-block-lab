@@ -53,7 +53,7 @@ jobs:
           if path.is_symlink() or not path.is_file() or path.stat().st_size > 65536:
               raise SystemExit('PROVIDER_ENTRY_SOURCE_REFUSED')
           source = path.read_bytes()
-          expected = '3c03a97102882dadfa29cffe1cdf8b822285e3f5db26430c944a4cbfbd5eba19'
+          expected = 'a561d69868dcbf5f634c5c491708c9826560c272a5daf59ab3da5f5785a7c0cb'
           if hashlib.sha256(source).hexdigest() != expected:
               raise SystemExit('PROVIDER_ENTRY_DIGEST_REFUSED')
           module = types.ModuleType('phase7_provider_entry_bound')
