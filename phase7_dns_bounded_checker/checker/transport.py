@@ -40,101 +40,235 @@ class DeadlineError(TimeoutError):
 class PhaseDeadline:
     """Exclusive SIGALRM owner: one 40s phase, nested 3s operation deadlines.
 
-    Does not borrow an existing alarm, use background threads, or renew total
-    time. The future workflow timeout is an additional external emergency bound.
-    Unix/Python signal delivery still requires real qualification, not inference.
+    The immutable nanosecond interval begins before signal setup. Setup,
+    collection, transport and restoration all spend that original interval.
+    No timer is borrowed and no deadline is renewed. Unix/Python signal delivery
+    still requires real qualification, not inference from this source.
     """
     def __init__(self):
         self.active = False
         self.used = False
-        self.deadline = None
-        self.operation_deadline = None
+        self._bounds = None
+        self._operation_deadline_ns = None
+        self._last_ns = None
+        self._failure_code = None
+        self._handler_attempted = False
+        self._timer_attempted = False
+        self._closed = False
+        self._restored = False
         self.previous_handler = None
         self.transport_claimed = False
 
+    @property
+    def started_ns(self):
+        return None if self._bounds is None else self._bounds[0]
+
+    @property
+    def deadline_ns(self):
+        return None if self._bounds is None else self._bounds[1]
+
+    @property
+    def deadline(self):
+        return None if self._bounds is None else _seconds_at_most(self.deadline_ns)
+
+    @property
+    def operation_deadline_ns(self):
+        return self._operation_deadline_ns
+
+    @property
+    def operation_deadline(self):
+        value = self._operation_deadline_ns
+        return None if value is None else _seconds_at_most(value)
+
+    def _fail(self, code):
+        # A caught phase alarm cannot turn into permission for more work.
+        if self._failure_code is None or code == 'PHASE_TIMEOUT':
+            self._failure_code = code
+        raise DeadlineError(self._failure_code)
+
+    def _now_ns(self):
+        try:
+            now = time.monotonic_ns()
+        except (ValueError, OSError, AttributeError):
+            self._fail('ALARM_UNAVAILABLE')
+        if type(now) is not int or now < 0 or (self._last_ns is not None and now < self._last_ns):
+            self._fail('ALARM_UNAVAILABLE')
+        self._last_ns = now
+        return now
+
+    def _remaining_ns(self):
+        if self._failure_code is not None:
+            raise DeadlineError(self._failure_code)
+        now = self._now_ns()
+        if self.deadline_ns is None:
+            self._fail('ALARM_UNAVAILABLE')
+        if now >= self.deadline_ns:
+            self._fail('PHASE_TIMEOUT')
+        limit = self._operation_deadline_ns
+        if limit is not None and now >= limit:
+            # An ordinary operation timeout does not renew or consume the
+            # remaining phase, and is not a sticky phase failure.
+            raise DeadlineError('OP_TIMEOUT')
+        return min(self.deadline_ns, self.deadline_ns if limit is None else limit) - now
+
+    def _arm_original_bound(self):
+        remaining_ns = self._remaining_ns()
+        # Set before the syscall: a failing arm may have partially taken effect.
+        self._timer_attempted = True
+        try:
+            signal.setitimer(signal.ITIMER_REAL, _seconds_at_most(remaining_ns))
+        except BaseException as failure:
+            if isinstance(failure, DeadlineError):
+                raise
+            if self._failure_code is None:
+                self._failure_code = 'ALARM_UNAVAILABLE'
+            if isinstance(failure, (ValueError, OSError, AttributeError)):
+                raise DeadlineError('ALARM_UNAVAILABLE') from None
+            raise
+        self._remaining_ns()
+
+    def _restore(self):
+        if self._closed:
+            return self._restored
+        failed = False
+        if self._timer_attempted:
+            try:
+                signal.setitimer(signal.ITIMER_REAL, 0.0)
+            except BaseException:
+                failed = True
+        # Restoration is attempted even if disarming failed, or installation
+        # raised before active became true. An existing foreign timer is never
+        # disarmed: _timer_attempted is set only after both zero-timer checks.
+        if self._handler_attempted:
+            try:
+                signal.signal(signal.SIGALRM, self.previous_handler)
+            except BaseException:
+                failed = True
+        self.active = False
+        self._operation_deadline_ns = None
+        self._closed = True
+        self._restored = not failed
+        if failed and self._failure_code is None:
+            self._failure_code = 'ALARM_UNAVAILABLE'
+        return not failed
+
     def _alarm(self, _signum, _frame):
-        now = time.monotonic()
-        raise DeadlineError('PHASE_TIMEOUT' if now >= self.deadline else 'OP_TIMEOUT')
+        now = self._now_ns()
+        if self.deadline_ns is not None and now >= self.deadline_ns:
+            self._fail('PHASE_TIMEOUT')
+        if self._operation_deadline_ns is not None:
+            raise DeadlineError('OP_TIMEOUT')
+        # A premature/unexpected alarm while the phase owns SIGALRM must not
+        # disappear if a collector catches its exception.
+        self._fail('ALARM_UNAVAILABLE')
 
     def __enter__(self):
-        if self.used:
+        if self.used or self._bounds is not None or self._closed:
             raise DeadlineError('ALARM_UNAVAILABLE')
         self.used = True
         try:
+            started = self._now_ns()
+            self._bounds = (started, started + 40_000_000_000)
             if signal.getitimer(signal.ITIMER_REAL) != (0.0, 0.0):
-                raise DeadlineError('ALARM_UNAVAILABLE')
+                self._fail('ALARM_UNAVAILABLE')
             self.previous_handler = signal.getsignal(signal.SIGALRM)
             # signal.signal itself refuses non-main-thread use.
+            self._handler_attempted = True
             signal.signal(signal.SIGALRM, self._alarm)
-            self.deadline = time.monotonic() + PHASE_SECONDS
+            if signal.getitimer(signal.ITIMER_REAL) != (0.0, 0.0):
+                self._fail('ALARM_UNAVAILABLE')
             self.active = True
-            signal.setitimer(signal.ITIMER_REAL, PHASE_SECONDS)
+            self._arm_original_bound()
             return self
-        except (ValueError, OSError, AttributeError):
-            if self.active:
-                self.active = False
-                signal.signal(signal.SIGALRM, self.previous_handler)
-            raise DeadlineError('ALARM_UNAVAILABLE') from None
+        except BaseException as failure:
+            if self._failure_code is None:
+                self._failure_code = 'ALARM_UNAVAILABLE'
+            self._restore()
+            if isinstance(failure, (ValueError, OSError, AttributeError)) and not isinstance(failure, DeadlineError):
+                raise DeadlineError('ALARM_UNAVAILABLE') from None
+            raise
 
     def __exit__(self, exc_type, _exc, _traceback):
-        restore_failed = False
-        try:
-            if self.active:
-                signal.setitimer(signal.ITIMER_REAL, 0.0)
-                signal.signal(signal.SIGALRM, self.previous_handler)
-        except (ValueError, OSError):
-            restore_failed = True
-        finally:
-            self.active = False
+        restored = self._restore()
         # Never replace an existing exception during restoration.
-        if exc_type is None and restore_failed:
-            raise DeadlineError('ALARM_UNAVAILABLE')
-        if exc_type is None and time.monotonic() >= self.deadline:
-            raise DeadlineError('PHASE_TIMEOUT')
+        if exc_type is not None:
+            if self._failure_code is None:
+                self._failure_code = 'ALARM_UNAVAILABLE'
+            return False
+        if not restored:
+            self._fail('ALARM_UNAVAILABLE')
+        self.check_closed()
         return False
+
+    def check_closed(self):
+        """Check restoration and the original cutoff without rearming or renewal."""
+        if not self.used or not self._closed or self.active or not self._restored:
+            self._fail('ALARM_UNAVAILABLE')
+        self._remaining_ns()
 
     def remaining(self):
         if not self.active:
             raise DeadlineError('ALARM_UNAVAILABLE')
-        now = time.monotonic()
-        if now >= self.deadline:
-            raise DeadlineError('PHASE_TIMEOUT')
-        limit = self.operation_deadline if self.operation_deadline is not None else self.deadline
-        if now >= limit:
-            raise DeadlineError('OP_TIMEOUT')
-        return min(self.deadline, limit) - now
+        return _seconds_at_most(self._remaining_ns())
 
     def operation(self):
         return _OperationDeadline(self)
 
 
+def _seconds_at_most(value_ns):
+    """Project an integer bound downward, never later than its exact ns value."""
+    seconds = value_ns / 1_000_000_000
+    numerator, denominator = seconds.as_integer_ratio()
+    if numerator * 1_000_000_000 > value_ns * denominator:
+        seconds = math.nextafter(seconds, -math.inf)
+    return seconds
+
+
 class _OperationDeadline:
     def __init__(self, owner):
         self.owner = owner
+        self.used = False
 
     def __enter__(self):
         owner = self.owner
-        owner.remaining()
-        if owner.operation_deadline is not None:
+        if self.used:
             raise DeadlineError('ALARM_UNAVAILABLE')
-        owner.operation_deadline = min(owner.deadline, time.monotonic() + OP_SECONDS)
-        signal.setitimer(signal.ITIMER_REAL, owner.remaining())
+        self.used = True
+        owner.remaining()
+        if owner.operation_deadline_ns is not None:
+            raise DeadlineError('ALARM_UNAVAILABLE')
+        owner._operation_deadline_ns = min(owner.deadline_ns, owner._now_ns() + 3_000_000_000)
+        try:
+            owner._arm_original_bound()
+        except BaseException:
+            owner._operation_deadline_ns = None
+            if owner._failure_code is None:
+                try:
+                    owner._arm_original_bound()
+                except BaseException:
+                    if owner._failure_code is None:
+                        owner._failure_code = 'ALARM_UNAVAILABLE'
+            raise
         return owner
 
     def __exit__(self, exc_type, _exc, _traceback):
         owner = self.owner
-        expired_operation = time.monotonic() >= owner.operation_deadline
-        owner.operation_deadline = None
-        remaining = owner.deadline - time.monotonic()
-        if remaining > 0:
-            signal.setitimer(signal.ITIMER_REAL, remaining)
-        else:
-            # Leave a prompt total-deadline alarm armed if an exception is
-            # already propagating; do not silently disable the global bound.
-            signal.setitimer(signal.ITIMER_REAL, .000001)
+        restoration_error = None
+        expired_operation = False
+        try:
+            expired_operation = owner._now_ns() >= owner.operation_deadline_ns
+            owner._operation_deadline_ns = None
+            # This uses the original phase cutoff and includes rearming time.
+            # An already expired phase is latched, never given a new allowance.
+            owner._arm_original_bound()
+        except BaseException as failure:
+            owner._operation_deadline_ns = None
+            restoration_error = failure
+            if not isinstance(failure, DeadlineError) and owner._failure_code is None:
+                owner._failure_code = 'ALARM_UNAVAILABLE'
         if exc_type is None:
-            if remaining <= 0:
-                raise DeadlineError('PHASE_TIMEOUT')
+            if restoration_error is not None:
+                raise restoration_error
             if expired_operation:
                 raise DeadlineError('OP_TIMEOUT')
         return False

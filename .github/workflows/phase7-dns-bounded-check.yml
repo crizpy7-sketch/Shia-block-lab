@@ -1,4 +1,4 @@
-name: Phase 7 DNS bounded external check
+name: Phase 7 ordinary bounded external check
 
 on:
   workflow_dispatch:
@@ -8,7 +8,11 @@ on:
         required: true
         type: string
       request_json:
-        description: Public nonsecret strict association JSON; never paste a GATE_READY token
+        description: Eight-field public association JSON; never paste a GATE_READY token
+        required: true
+        type: string
+      timing_context_json:
+        description: Reviewed bounded public timing context; no receipts, credentials, or raw captures
         required: true
         type: string
 
@@ -41,41 +45,130 @@ jobs:
           lfs: false
           sparse-checkout: phase7_dns_bounded_checker
 
-      - name: One bounded observation
+      - name: One bounded ordinary observation
         env:
           PHASE7_APPROVED_COMMIT: ${{ inputs.approved_commit }}
           PHASE7_REQUEST: ${{ inputs.request_json }}
+          PHASE7_TIMING_CONTEXT: ${{ inputs.timing_context_json }}
           PHASE7_REPOSITORY_VISIBILITY: ${{ github.event.repository.visibility }}
         shell: bash
         run: |
           timeout -k 1s 45s python3 -I -S -B - <<'PY'
-          import hashlib, json, os, pathlib, re, sys
-          root = pathlib.Path('phase7_dns_bounded_checker').resolve()
-          manifest = root / 'manifest.json'
-          expected_manifest = 'b29caea521e242582c24721d5581875d1d8924ca5a6ed8bee448e16267dd11f2'
+          import hashlib, itertools, json, os, pathlib, re, stat, sys
           def refuse():
               raise SystemExit('PHASE7_SOURCE_BINDING_REFUSED')
-          if manifest.is_symlink() or manifest.stat().st_size > 4096:
-              refuse()
-          raw = manifest.read_bytes()
-          if hashlib.sha256(raw).hexdigest() != expected_manifest:
-              refuse()
-          expected = json.loads(raw)['files']
-          if set(expected) != {'__init__.py', 'contract.py', 'main.py', 'resolver_child.py', 'resolver_owner.py', 'response.py', 'transport.py'}:
-              refuse()
-          for name, digest in expected.items():
-              path = root / 'checker' / name
-              if path.is_symlink() or not path.resolve().is_relative_to(root) or path.stat().st_size > 65536:
+          def read_fixed(path, cap, exact=None):
+              if path.is_symlink() or path.resolve() != path:
                   refuse()
-              if hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+              descriptor = os.open(path, os.O_RDONLY | os.O_NOFOLLOW)
+              with os.fdopen(descriptor, 'rb') as stream:
+                  info = os.fstat(stream.fileno())
+                  if not stat.S_ISREG(info.st_mode) or not 0 <= info.st_size <= cap or (exact is not None and info.st_size != exact):
+                      refuse()
+                  value = stream.read(cap + 1)
+                  if len(value) != info.st_size or len(value) > cap:
+                      refuse()
+                  return value
+          root = pathlib.Path.cwd() / 'phase7_dns_bounded_checker'
+          if root.is_symlink() or not root.is_dir() or root.resolve() != root:
+              refuse()
+          # BEGIN GENERATED SOURCE BINDING
+          expected_manifest = 'f52debaff6540bd28b7bc61561483a5268907b983074d502230ca1041dd730e7'
+          expected_paths = (
+              'checker/__init__.py',
+              'checker/contract.py',
+              'checker/main.py',
+              'checker/resolver_child.py',
+              'checker/resolver_owner.py',
+              'checker/response.py',
+              'checker/timing.py',
+              'checker/transport.py',
+              'phase7_chrony_capability_probe/entry.py',
+              'phase7_chrony_gate_integration/__init__.py',
+              'phase7_chrony_gate_integration/chrony45.py',
+              'phase7_clock_sampler/__init__.py',
+              'phase7_clock_sampler/sampler.py',
+              'phase7_live_adapter/__init__.py',
+              'phase7_live_adapter/capture.py',
+              'phase7_live_adapter/collector.py',
+              'phase7_live_adapter/sources.py',
+              'phase7_observed_clock_model/__init__.py',
+              'phase7_observed_clock_model/model.py',
+              'phase7_observed_clock_model/validation.py',
+              'phase7_receipt_mapper/__init__.py',
+              'phase7_receipt_mapper/clock_evidence.py',
+          )
+          expected_total_bytes = 180029
+          # END GENERATED SOURCE BINDING
+          if (not re.fullmatch('[0-9a-f]{64}', expected_manifest)
+                  or not 1 <= len(expected_paths) <= 64
+                  or not 0 < expected_total_bytes <= 262144):
+              refuse()
+          manifest = root / 'manifest.json'
+          try:
+              raw = read_fixed(manifest, 8192)
+              if len(raw) > 8192 or hashlib.sha256(raw).hexdigest() != expected_manifest:
                   refuse()
+              document = json.loads(raw)
+              if type(document) is not dict or set(document) != {'schema', 'files', 'file_bytes', 'total_bytes'} or type(document['schema']) is not int or document['schema'] != 1:
+                  refuse()
+              files, sizes = document['files'], document['file_bytes']
+              if (type(files) is not dict or type(sizes) is not dict or set(files) != set(expected_paths)
+                      or set(sizes) != set(expected_paths) or document['total_bytes'] != expected_total_bytes
+                      or type(document['total_bytes']) is not int):
+                  refuse()
+              parents = {pathlib.PurePosixPath(name).parent.as_posix() for name in expected_paths}
+              if any(not re.fullmatch(r'[a-z][a-z0-9_]*(?:/[a-z][a-z0-9_]*)*/[a-z_][a-z0-9_]*\.py', name) for name in expected_paths):
+                  refuse()
+              parents.update(part.as_posix() for name in expected_paths for part in pathlib.PurePosixPath(name).parents if part.as_posix() != '.')
+              top_entries = list(itertools.islice(root.iterdir(), 129))
+              if len(top_entries) > 128:
+                  refuse()
+              for item in top_entries:
+                  if item.suffix in {'.py', '.pyc', '.so', '.pyd'}:
+                      refuse()
+                  if item.is_dir() and item.name in sys.stdlib_module_names:
+                      refuse()
+              for name in sorted(parents):
+                  directory = root / name
+                  if directory.is_symlink() or not stat.S_ISDIR(directory.stat().st_mode) or directory.resolve() != directory:
+                      refuse()
+                  entries = list(itertools.islice(directory.iterdir(), 129))
+                  if len(entries) > 128:
+                      refuse()
+                  for item in entries:
+                      relative = item.relative_to(root).as_posix()
+                      if item.suffix in {'.py', '.pyc', '.so', '.pyd'} and relative not in files:
+                          refuse()
+                      if item.is_dir() and relative not in parents:
+                          refuse()
+              total = 0
+              for name in expected_paths:
+                  path = root / name
+                  size, digest = sizes[name], files[name]
+                  if (type(size) is not int or not 0 <= size <= 65536 or type(digest) is not str
+                          or not re.fullmatch('[0-9a-f]{64}', digest)):
+                      refuse()
+                  source = read_fixed(path, 65536, size)
+                  if len(source) != size or hashlib.sha256(source).hexdigest() != digest:
+                      refuse()
+                  total += size
+              if total != expected_total_bytes:
+                  refuse()
+          except (OSError, ValueError, TypeError, KeyError):
+              refuse()
           approved = os.environ.get('PHASE7_APPROVED_COMMIT', '')
           if not re.fullmatch('[0-9a-f]{40}', approved) or approved != os.environ.get('GITHUB_SHA'):
               refuse()
+          for key, cap in (('PHASE7_REQUEST', 2048), ('PHASE7_TIMING_CONTEXT', 16384)):
+              value = os.environ.get(key, '')
+              if not value.isascii() or not 0 < len(value) <= cap:
+                  refuse()
           keys = ('GITHUB_REPOSITORY', 'GITHUB_REPOSITORY_ID', 'GITHUB_EVENT_NAME',
                   'GITHUB_REF', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF', 'GITHUB_WORKFLOW_SHA',
-                  'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'PHASE7_APPROVED_COMMIT',
-                  'PHASE7_REQUEST', 'PHASE7_REPOSITORY_VISIBILITY')
+                  'GITHUB_RUN_ID', 'GITHUB_RUN_ATTEMPT', 'GITHUB_JOB', 'RUNNER_OS', 'RUNNER_ARCH',
+                  'PHASE7_APPROVED_COMMIT', 'PHASE7_REQUEST', 'PHASE7_TIMING_CONTEXT',
+                  'PHASE7_REPOSITORY_VISIBILITY')
           clean = {key: os.environ[key] for key in keys if key in os.environ}
           clean.update(PATH='/usr/local/bin:/usr/bin:/bin', LANG='C.UTF-8')
           os.execve(sys.executable, [sys.executable, '-I', '-S', '-B', str(root / 'checker' / 'main.py')], clean)

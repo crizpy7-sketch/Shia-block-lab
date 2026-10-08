@@ -11,7 +11,8 @@ import time
 if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from checker import contract, transport
+from checker import contract, transport, timing
+from phase7_live_adapter import collector
 
 GITHUB_KEYS = ('GITHUB_REPOSITORY', 'GITHUB_REPOSITORY_ID', 'GITHUB_EVENT_NAME',
                'GITHUB_REF', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF',
@@ -62,7 +63,7 @@ def public_observation(value):
             for key in sorted(keys)}
 
 
-def encode_record(context, observations, outcome, started_epoch, elapsed_ms):
+def encode_record(context, observations, outcome, started_epoch, elapsed_ms, timing_summary=None):
     if type(outcome) is not str or outcome not in RESULT_CODES or type(observations) is not list or len(observations) > 11:
         raise ValueError('OUTPUT_INVALID')
     if type(started_epoch) not in (int, float) or not math.isfinite(started_epoch):
@@ -97,19 +98,27 @@ def encode_record(context, observations, outcome, started_epoch, elapsed_ms):
               'completed_target_operations': sum(value['kind'] != 'DNS' for value in observations),
               'cleanup_proven': False, 'control_authority': 'NONE',
               'phase7_acceptance': 'BLOCKED'}
+    if timing_summary is not None:
+        record['same_run_timing'] = timing.public_summary(timing_summary)
     encoded = json.dumps(record, sort_keys=True, separators=(',', ':'), ensure_ascii=True) + '\n'
     if len(encoded.encode('ascii')) > OUTPUT_CAP:
         raise ValueError('OUTPUT_CAP')
     return encoded
 
 
-def run_once(raw, environ):
-    """Return one record and exit status. Does not print or issue next phases."""
+def run_once(raw, environ, *, timing_raw=None, _owner_factory=None,
+             _boundary=None, _transport_factory=None, _monotonic_ns=None,
+             _time_ns=None):
+    """One ordinary phase under one original owner; defaults are real boundaries.
+
+    Underscore injection points are for focused offline tests. The CLI supplies
+    none of them. No supplied policy or computed bound creates gate authority.
+    """
     started = time.time()
     monotonic_start = time.monotonic()
-    observations = []
-    context = None
-    outcome = 'REFUSED'
+    observations, context, owner = [], None, None
+    outcome, encoded = 'REFUSED', None
+    summary = timing.initial_summary()
     try:
         env = {key: environ.get(key) for key in GITHUB_KEYS}
         approved = environ.get('PHASE7_APPROVED_COMMIT', '')
@@ -118,21 +127,41 @@ def run_once(raw, environ):
         if environ.get('PHASE7_REPOSITORY_VISIBILITY') != 'public':
             raise ValueError('VISIBILITY_REFUSED')
         context = contract.validate(raw, env, started)
+        if context['phase'] == 'ROUTE':
+            raise timing.TimingError('TIMING_PHASE_INVALID')
+        supplied = environ.get('PHASE7_TIMING_CONTEXT', '') if timing_raw is None else timing_raw
+        if type(supplied) is not str or not 0 < len(supplied) <= timing.CONTEXT_CAP or not supplied.isascii():
+            raise timing.TimingError('TIMING_CONTEXT_INVALID')
+        monotonic_ns = time.monotonic_ns if _monotonic_ns is None else _monotonic_ns
+        time_ns = time.time_ns if _time_ns is None else _time_ns
+        make_owner = transport.PhaseDeadline if _owner_factory is None else _owner_factory
+        make_transport = transport.FixedTransport if _transport_factory is None else _transport_factory
+        boundary = collector.ReadOnlyBoundary() if _boundary is None else _boundary
+        operations = contract.operations(context['phase'])
+        network_ns = (1 + len(operations)) * timing.OP_NS
+        with make_owner() as owner:
+            snapshot, runtime = timing.parse_context(supplied.encode('ascii'), context, environ, approved)
+            clock, prepared = timing.prepare(owner, snapshot, runtime, context,
+                monotonic_ns=monotonic_ns, time_ns=time_ns)
+            clock.reserve(timing.COLLECTION_NS + network_ns)
+            summary['collection_calls'] = 1
+            collection_start_ns = clock.check()
+            collected = collector.collect_private(owner=owner, runtime_sha256=runtime,
+                boundary=boundary, required_reserve_ns=network_ns)
+            collection_end_ns = clock.check()
+            evaluated = timing.evaluate(collected, clock, prepared,
+                collection_start_ns=collection_start_ns, collection_end_ns=collection_end_ns)
+            summary.update(evaluated.summary)
 
-        def fresh():
-            utc = time.time()
-            elapsed = time.monotonic() - monotonic_start
-            if not math.isfinite(elapsed) or elapsed < 0 or abs((utc - started) - elapsed) > 5:
-                raise contract.ContractError('CLOCK_DISCONTINUITY')
-            contract.validate(raw, env, utc)
+            def fresh(*, active=True):
+                utc_us = timing.fresh(clock, prepared, evaluated, active=active)
+                contract.validate(raw, env, utc_us / 1_000_000)
 
-        with transport.PhaseDeadline() as owner:
-            connection = transport.FixedTransport(owner)
-            # Refuse again after interpreter/setup delay, before DNS/network.
             fresh()
+            clock.reserve(network_ns)
+            connection = make_transport(owner)
+            summary['transport_created'] = True
             dns = public_observation(connection.resolve())
-            # Normalization alone allows all operation kinds. A DNS approval
-            # must have this exact envelope and its own conservative time gate.
             if (dns['kind'] != 'DNS' or dns['path'] is not None or dns['port'] != 0
                     or dns['accept'] != 'NONE' or dns['response'] is not None
                     or dns['markers'] != [False] * 4):
@@ -141,9 +170,8 @@ def run_once(raw, environ):
             if dns['error'] is not None or dns['duration_ms'] >= 3000:
                 outcome = 'INCONCLUSIVE'
             else:
-                evaluations = []
-                positive_https = False
-                for operation in contract.operations(context['phase']):
+                evaluations, positive_https = [], False
+                for operation in operations:
                     fresh()
                     if operation['kind'] == 'HTTPS':
                         value = connection.https(operation['path'], operation['accept'])
@@ -152,6 +180,9 @@ def run_once(raw, environ):
                     else:
                         value = connection.tcp(operation['port'])
                     value = public_observation(value)
+                    if (value['kind'] != operation['kind'] or value['path'] != operation['path']
+                            or value['port'] != operation['port'] or value['accept'] != operation['accept']):
+                        raise ValueError('NORMALIZATION_INVALID')
                     observations.append(value)
                     evaluation = contract.interpret(context['phase'], operation, value,
                                                     positive_https_control=positive_https)
@@ -160,22 +191,34 @@ def run_once(raw, environ):
                         positive_https = True
                 fresh()
                 outcome = contract.summarize(context['phase'], evaluations)['outcome']
-    except contract.ContractError:
+            # Serialize while still inside the original phase, then check again.
+            elapsed = int((time.monotonic() - monotonic_start) * 1000)
+            encoded = encode_record(context, observations, outcome, started, elapsed, summary)
+            fresh()
+        owner.check_closed()
+        fresh(active=False)
+    except timing.TimingError as error:
+        encoded = None
+        summary.update(status='REFUSED', code=error.code)
         outcome = 'REFUSED' if not observations else 'INCONCLUSIVE'
     except Exception:
-        # Neither response bytes, input text nor exception messages are public.
+        encoded = None
+        summary.update(status='REFUSED', code='DEPENDENCY_FAILED')
         outcome = 'INCONCLUSIVE' if observations else 'REFUSED'
     if context is not None and context['phase'] != 'CLOSEOUT' and any(
             any(value['markers']) or (value['kind'] == 'TCP' and value['port'] in contract.PRIVATE_PORTS
                                        and value['error'] is None) for value in observations):
+        if outcome != 'FAIL':
+            encoded = None
         outcome = 'FAIL'
     elapsed = int((time.monotonic() - monotonic_start) * 1000)
     try:
-        encoded = encode_record(context, observations, outcome, started, elapsed)
+        if encoded is None:
+            encoded = encode_record(context, observations, outcome, started, elapsed, summary)
     except Exception:
         encoded = '{"record":"PHASE7_EXTERNAL_OBSERVATION","outcome":"REFUSED","reason":"OUTPUT_INVALID","phase7_acceptance":"BLOCKED"}\n'
         outcome = 'REFUSED'
-    return encoded, (0 if outcome in {'ROUTE_CAPABILITY_OBSERVED', 'EXPECTED_PHASE_OBSERVATIONS', 'OBSERVED_ONLY'} else 1)
+    return encoded, (0 if outcome in {'EXPECTED_PHASE_OBSERVATIONS', 'OBSERVED_ONLY'} else 1)
 
 
 def main():
