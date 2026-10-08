@@ -1,0 +1,54 @@
+{
+  "schema": 2,
+  "record": "ORDINARY_CHRONY_TIMING_CONTEXT",
+  "request_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "expected_commit": "0000000000000000000000000000000000000000",
+  "observation_lower_us": 1700000000000000,
+  "native_endpoint": {
+    "schema": 1,
+    "record": "REVIEWED_CONDITIONAL_ENDPOINT",
+    "basis": "EXPLICIT_OPERATING_POLICY",
+    "role": "NATIVE",
+    "runtime_sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+    "evidence_sha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "review_sha256": "3333333333333333333333333333333333333333333333333333333333333333",
+    "valid_from_us": 1700000000000000,
+    "valid_until_us": 1700000120000000,
+    "total_utc_error_bound_ns": 1000000000
+  },
+  "coordinator_endpoint": {
+    "schema": 1,
+    "record": "REVIEWED_CONDITIONAL_ENDPOINT",
+    "basis": "EXPLICIT_OPERATING_POLICY",
+    "role": "COORDINATOR",
+    "runtime_sha256": "4444444444444444444444444444444444444444444444444444444444444444",
+    "evidence_sha256": "5555555555555555555555555555555555555555555555555555555555555555",
+    "review_sha256": "6666666666666666666666666666666666666666666666666666666666666666",
+    "valid_from_us": 1700000000000000,
+    "valid_until_us": 1700000120000000,
+    "total_utc_error_bound_ns": 1000000000
+  },
+  "runner_profile": {
+    "schema": 1,
+    "record": "ORDINARY_CHRONY_MONITOR_OPERATING_PROFILE",
+    "provider_mode": "NONINTERACTIVE_SUDO_MONITOR",
+    "profile_id": "CANONICAL_NOBLE_CHRONY45_HYPERV_PHC",
+    "valid_from_us": 1700000000000000,
+    "valid_until_us": 1700000120000000,
+    "source_accuracy_bound_ns": 1000000000,
+    "limits": {
+      "rate_bound_ppb": 1000000,
+      "max_sample_age_ns": 16000000000
+    },
+    "config": {
+      "loaded_config_equivalence_assumed": true,
+      "no_config_edits_assumed": true
+    },
+    "continuity": {
+      "no_unaccounted_steps": true,
+      "no_restart_or_source_change": true,
+      "allow_retrospective_projection": true
+    },
+    "review_evidence_sha256": "7777777777777777777777777777777777777777777777777777777777777777"
+  }
+}
