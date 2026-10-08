@@ -5,12 +5,11 @@ delivery. Supplied review/policy identities associate claims; they attest none.
 """
 from dataclasses import dataclass
 import hashlib
-import ipaddress
 import json
 import re
 
 from checker import contract
-from phase7_live_adapter import collector
+from phase7_live_adapter import collector, monitor
 from phase7_observed_clock_model import model
 from phase7_observed_clock_model.validation import private_binding
 from phase7_receipt_mapper.clock_evidence import validate_pair
@@ -22,7 +21,7 @@ COLLECTION_NS = 6_000_000_000
 OP_NS = 3_000_000_000
 US = 1_000_000
 CONTEXT_KEYS = frozenset(('schema', 'record', 'request_sha256', 'expected_commit',
-    'observation_lower_us', 'native_endpoint', 'coordinator_endpoint', 'runner_policy'))
+    'observation_lower_us', 'native_endpoint', 'coordinator_endpoint', 'runner_profile'))
 ENDPOINT_KEYS = frozenset(('schema', 'record', 'basis', 'role', 'runtime_sha256',
     'evidence_sha256', 'review_sha256', 'valid_from_us', 'valid_until_us',
     'total_utc_error_bound_ns'))
@@ -150,52 +149,16 @@ def _endpoint(value, role, runtime):
           'TIMING_ENDPOINT_INVALID')
 
 
-def _policy_template(value):
-    _need(_keys(value, model.POLICY_KEYS) and type(value['schema']) is int and value['schema'] == 1
-          and value['record'] == 'EXPLICIT_CHRONY45_POLICY_CLAIMS'
-          and value['runtime_sha256'] == 'CURRENT_JOB'
-          and _digest(value['review_evidence_sha256'])
-          and _integer(value['valid_from_us'], 10**18)
-          and _integer(value['valid_until_us'], 10**18)
-          and value['valid_from_us'] <= value['valid_until_us'], 'TIMING_POLICY_INVALID')
-    source, daemon, limits, continuity = (value[k] for k in ('source', 'daemon', 'limits', 'continuity'))
-    _need(_keys(source, {'mode', 'reference_id', 'address', 'source_accuracy_bound_ns', 'utc_basis'})
-          and source['mode'] in ('^', '=', '#') and type(source['reference_id']) is str
-          and re.fullmatch('[0-9A-F]{8}', source['reference_id']) is not None
-          and type(source['address']) is str and 0 < len(source['address']) <= 255
-          and source['reference_id'] not in ('00000000', '7F7F0101')
-          and source['address'] not in ('0.0.0.0', '::', '127.127.1.1', 'LOCAL', '[UNSPEC]')
-          and source['utc_basis'] == 'UTC_ERROR_INCLUDES_TIMESCALE_CONVERSION'
-          and _integer(source['source_accuracy_bound_ns']), 'TIMING_POLICY_INVALID')
-    if source['mode'] == '#':
-        _need(re.fullmatch(r'[A-Za-z0-9_-]{1,4}', source['address']) is not None
-              and source['reference_id'] == source['address'].encode('ascii').ljust(4, b'\0').hex().upper(),
-              'TIMING_POLICY_INVALID')
-    else:
-        _need(re.fullmatch(r'[0-9A-Fa-f:.]{2,45}', source['address']) is not None,
-              'TIMING_POLICY_INVALID')
-        try:
-            address = ipaddress.ip_address(source['address'])
-        except ValueError:
-            raise TimingError('TIMING_POLICY_INVALID') from None
-        if address.version == 4:
-            _need(source['reference_id'] == address.packed.hex().upper(), 'TIMING_POLICY_INVALID')
-        # The retained source parser does not infer an IPv6 reference-ID hash.
-    _need(_keys(daemon, {'version', 'runtime_sha256', 'association_evidence_sha256', 'loaded_config_evidence_sha256'})
-          and daemon['version'] == '4.5' and daemon['runtime_sha256'] == 'CURRENT_JOB'
-          and _digest(daemon['association_evidence_sha256'])
-          and _digest(daemon['loaded_config_evidence_sha256']), 'TIMING_POLICY_INVALID')
-    _need(_keys(limits, {'rate_bound_ppb', 'max_sample_age_ns'})
-          and _integer(limits['rate_bound_ppb'], 1_000_000_001)
-          and _integer(limits['max_sample_age_ns']) and limits['max_sample_age_ns'] > 0,
-          'TIMING_POLICY_INVALID')
-    _need(_keys(continuity, {'no_unaccounted_steps', 'no_restart_or_source_change', 'allow_retrospective_projection'})
-          and all(continuity[k] is True for k in continuity), 'TIMING_POLICY_INVALID')
+def _profile_template(value):
+    try:
+        monitor.validate_profile(value)
+    except (monitor.CollectionError, ValueError, TypeError, KeyError, RecursionError, OverflowError):
+        raise TimingError('TIMING_POLICY_INVALID') from None
 
 
 def _validate_context(snapshot, request, runtime, approved_commit):
     _need(_keys(snapshot, CONTEXT_KEYS) and type(snapshot['schema']) is int
-          and snapshot['schema'] == 1 and snapshot['record'] == 'ORDINARY_CHECKER_TIMING_CONTEXT',
+          and snapshot['schema'] == 2 and snapshot['record'] == 'ORDINARY_CHRONY_TIMING_CONTEXT',
           'TIMING_CONTEXT_INVALID')
     _need(request['phase'] in ('CLOSED', 'LOGIN', 'CLOSEOUT'), 'TIMING_PHASE_INVALID')
     _need(_digest(snapshot['expected_commit'], 40) and snapshot['expected_commit'] == approved_commit,
@@ -209,7 +172,7 @@ def _validate_context(snapshot, request, runtime, approved_commit):
           'TIMING_ENDPOINT_INVALID')
     if snapshot['coordinator_endpoint'] is not None:
         _endpoint(snapshot['coordinator_endpoint'], 'COORDINATOR', runtime)
-    _policy_template(snapshot['runner_policy'])
+    _profile_template(snapshot['runner_profile'])
 
 
 def parse_context(raw, request_context, env, approved_commit):
@@ -273,7 +236,7 @@ class Clock:
 @dataclass(frozen=True, repr=False)
 class Prepared:
     context_raw: bytes
-    policy_raw: bytes
+    profile_raw: bytes
     request_raw: bytes
     runtime_sha256: str
     owner_started_ns: int
@@ -298,14 +261,12 @@ def prepare(owner, snapshot, runtime, request_context, *, monotonic_ns, time_ns)
           and started + 45 * US < request['expires_epoch'] * US, 'TIMING_CONTEXT_STALE')
     reserve = 85 if request['phase'] == 'CLOSEOUT' else 1705
     _need(started + reserve * US < request['deadline_epoch'] * US, 'TIMING_CONTEXT_STALE')
-    policy = snapshot['runner_policy']
-    for endpoint in (snapshot['native_endpoint'], snapshot['coordinator_endpoint'], policy):
+    profile = snapshot['runner_profile']
+    for endpoint in (snapshot['native_endpoint'], snapshot['coordinator_endpoint'], profile):
         if endpoint is not None:
             _need(endpoint['valid_from_us'] <= lower <= horizon <= endpoint['valid_until_us'],
                   'TIMING_INTERVAL_INVALID')
-    policy['runtime_sha256'] = runtime
-    policy['daemon']['runtime_sha256'] = runtime
-    prepared = Prepared(context_raw, _canonical(policy), _canonical(request), runtime,
+    prepared = Prepared(context_raw, _canonical(profile), _canonical(request), runtime,
         clock.start, clock.deadline, started, lower, horizon)
     clock.check()
     return clock, prepared
@@ -361,7 +322,7 @@ class Evaluation:
 
 def initial_summary():
     return {'schema': 1, 'record': 'ORDINARY_CHECKER_CONDITIONAL_TIMING',
-        'status': 'REFUSED', 'code': 'NOT_STARTED', 'provider_access_mode': 'DIRECT_SOCKET_ONLY',
+        'status': 'REFUSED', 'code': 'NOT_STARTED', 'provider_access_mode': 'NONINTERACTIVE_SUDO_MONITOR',
         'runtime_association': 'ACTUAL_JOB_FIELDS_NOT_ATTESTATION', 'policy_truth_verified': False,
         'runtime_attested': False, 'alignment_established': False, 'execution_authorized': False,
         'phase7_acceptance': 'BLOCKED', 'phase_budget_ns': PHASE_NS,
@@ -414,16 +375,19 @@ def evaluate(collected, clock, prepared, *, collection_start_ns, collection_end_
               and prepared.owner_started_ns <= collection_start_ns <= collection_end_ns < prepared.owner_deadline_ns,
               'TIMING_COLLECTION_NOT_CURRENT')
         record = collected.private
-        first, last = record['captures'][0]['bracket'], record['kernel_after']['samples'][-1]
+        validated = monitor.validate_observation(record, prepared.runtime_sha256)
+        first, last = record['captures'][0]['bracket'], record['metadata_captures'][-1]['bracket']
         now_us = clock.wall()
         _need(record['owner_started_ns'] == prepared.owner_started_ns
               and record['owner_deadline_ns'] == prepared.owner_deadline_ns
               and collection_start_ns <= first['monotonic_before_ns'] <= last['monotonic_after_ns'] <= collection_end_ns
               and prepared.started_us * 1000 <= first['realtime_before_ns']
               and last['realtime_after_ns'] < (now_us + 1) * 1000, 'TIMING_COLLECTION_NOT_CURRENT')
-        policy = json.loads(prepared.policy_raw)
-        observed = model.evaluate_observation(record, expected_runtime_sha256=prepared.runtime_sha256,
-            policy=policy, valid_from_us=prepared.coverage_lower_us, valid_until_us=prepared.horizon_us)
+        profile = json.loads(prepared.profile_raw)
+        policy = monitor.materialize_policy(profile, validated, prepared.runtime_sha256,
+            prepared.coverage_lower_us, prepared.horizon_us)
+        observed = monitor.evaluate_observation(record, expected_runtime_sha256=prepared.runtime_sha256,
+            profile=profile, valid_from_us=prepared.coverage_lower_us, valid_until_us=prepared.horizon_us)
         _need(type(observed) is model.ModelResult and observed.public.get('status') == 'CONDITIONAL_MODEL_ONLY'
               and type(observed.private) is dict and observed.private['policy_sha256'] == private_binding(policy),
               'TIMING_MODEL_REFUSED')
@@ -437,7 +401,7 @@ def evaluate(collected, clock, prepared, *, collection_start_ns, collection_end_
         return result
     except TimingError:
         raise
-    except (ValueError, TypeError, KeyError, IndexError, RecursionError, OverflowError):
+    except (monitor.CollectionError, ValueError, TypeError, KeyError, IndexError, RecursionError, OverflowError):
         raise TimingError('TIMING_MODEL_REFUSED') from None
 
 

@@ -12,7 +12,7 @@ if __package__ in (None, ''):
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from checker import contract, transport, timing
-from phase7_live_adapter import collector
+from phase7_live_adapter import monitor
 
 GITHUB_KEYS = ('GITHUB_REPOSITORY', 'GITHUB_REPOSITORY_ID', 'GITHUB_EVENT_NAME',
                'GITHUB_REF', 'GITHUB_SHA', 'GITHUB_WORKFLOW_REF',
@@ -136,7 +136,7 @@ def run_once(raw, environ, *, timing_raw=None, _owner_factory=None,
         time_ns = time.time_ns if _time_ns is None else _time_ns
         make_owner = transport.PhaseDeadline if _owner_factory is None else _owner_factory
         make_transport = transport.FixedTransport if _transport_factory is None else _transport_factory
-        boundary = collector.ReadOnlyBoundary() if _boundary is None else _boundary
+        boundary = monitor.FixedMonitorBoundary() if _boundary is None else _boundary
         operations = contract.operations(context['phase'])
         network_ns = (1 + len(operations)) * timing.OP_NS
         with make_owner() as owner:
@@ -146,7 +146,7 @@ def run_once(raw, environ, *, timing_raw=None, _owner_factory=None,
             clock.reserve(timing.COLLECTION_NS + network_ns)
             summary['collection_calls'] = 1
             collection_start_ns = clock.check()
-            collected = collector.collect_private(owner=owner, runtime_sha256=runtime,
+            collected = monitor.collect_private(owner=owner, runtime_sha256=runtime,
                 boundary=boundary, required_reserve_ns=network_ns)
             collection_end_ns = clock.check()
             evaluated = timing.evaluate(collected, clock, prepared,
