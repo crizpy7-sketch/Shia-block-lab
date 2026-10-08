@@ -307,3 +307,11 @@ class MonitorChecks(unittest.TestCase):
         self.assertFalse(result.meta['parent_pipes_closed'])
         self.assertFalse(result.meta['descendant_cleanup_proven'])
         self.assertEqual(result.meta['code'], 'DIRECT_RESOURCE_CLOSURE_UNPROVEN')
+
+    def test_refclock_matches_same_observed_hyperv_device(self):
+        for path, accepted in (('/dev/ptp0', True), ('/dev/ptp1', False)):
+            with self.subTest(path=path):
+                def change(facts, count): facts['configuration']['refclocks'][0][1] = path
+                collected, _, _ = collection_fixture(facts_change=change)
+                self.assertIsNotNone(collected.private)
+                self.assertEqual(evaluate(collected.private).private is not None, accepted)

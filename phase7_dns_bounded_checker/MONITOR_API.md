@@ -86,7 +86,8 @@ kernel reads and no kernel UTC authority claim.
 `ORDINARY_CHRONY_MONITOR_OPERATING_PROFILE` schema in `monitor.py`, with profile ID
 `CANONICAL_NOBLE_CHRONY45_HYPERV_PHC`. It matches actual chrony 4.5 package/binary
 association, the Hyper-V `/dev/ptp_hyperv` device and sysfs clock name, and exactly
-one configured PHC refclock with poll 3, dpoll -2, zero offset, and matching actual
+one configured PHC refclock using that alias or its same observed resolved device,
+with poll 3, dpoll -2, zero offset, and matching actual
 selected refclock identity. The default PHC0 refid or a matching explicit four-
 character refid is supported. The selected report is at most 16 seconds old;
 observed correction/offset/root-error fields are at most 100 milliseconds and

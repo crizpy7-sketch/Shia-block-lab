@@ -73,7 +73,7 @@ jobs:
           if root.is_symlink() or not root.is_dir() or root.resolve() != root:
               refuse()
           # BEGIN GENERATED SOURCE BINDING
-          expected_manifest = 'f161f79d3f433982a25fcd56908f9c22282f3018e97bb6eb67c9a78a9cd5fc73'
+          expected_manifest = 'a3ca2841424761a551be8caec57f68654299d23e7a1114f64e96626efa8257c4'
           expected_paths = (
               'checker/__init__.py',
               'checker/contract.py',
@@ -100,7 +100,7 @@ jobs:
               'phase7_receipt_mapper/__init__.py',
               'phase7_receipt_mapper/clock_evidence.py',
           )
-          expected_total_bytes = 212421
+          expected_total_bytes = 212480
           # END GENERATED SOURCE BINDING
           if (not re.fullmatch('[0-9a-f]{64}', expected_manifest)
                   or not 1 <= len(expected_paths) <= 64

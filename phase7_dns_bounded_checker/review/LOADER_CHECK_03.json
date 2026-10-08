@@ -1,0 +1,54 @@
+{
+  "candidate_imported": false,
+  "candidate_started": false,
+  "checks": [
+    {
+      "case": "valid",
+      "passed": true,
+      "refused": false,
+      "stub_launches": 1
+    },
+    {
+      "case": "bad_manifest",
+      "passed": true,
+      "refused": true,
+      "stub_launches": 0
+    },
+    {
+      "case": "changed_module",
+      "passed": true,
+      "refused": true,
+      "stub_launches": 0
+    },
+    {
+      "case": "extra_python",
+      "passed": true,
+      "refused": true,
+      "stub_launches": 0
+    },
+    {
+      "case": "symlink_source",
+      "passed": true,
+      "refused": true,
+      "stub_launches": 0
+    },
+    {
+      "case": "oversized_input",
+      "passed": true,
+      "refused": true,
+      "stub_launches": 0
+    }
+  ],
+  "manifest_sha256": "f161f79d3f433982a25fcd56908f9c22282f3018e97bb6eb67c9a78a9cd5fc73",
+  "passed": true,
+  "phase7_acceptance": "BLOCKED",
+  "publication_performed": false,
+  "real_boundary_calls": {
+    "network": 0,
+    "process": 0,
+    "thread": 0
+  },
+  "record": "ORDINARY_WORKFLOW_LOADER_OFFLINE_CHECK",
+  "workflow_dispatched": false,
+  "workflow_sha256": "567d76d495012fb50ee864119493315a4ce74e2a079386e02cc5f840c667ebd8"
+}

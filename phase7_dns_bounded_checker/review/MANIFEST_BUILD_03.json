@@ -1,0 +1,8 @@
+{
+  "manifest_bytes": 3374,
+  "manifest_sha256": "f161f79d3f433982a25fcd56908f9c22282f3018e97bb6eb67c9a78a9cd5fc73",
+  "production_bytes": 212421,
+  "production_files": 24,
+  "status": "LOCAL_MANIFEST_BUILT",
+  "workflow_sha256": "567d76d495012fb50ee864119493315a4ce74e2a079386e02cc5f840c667ebd8"
+}

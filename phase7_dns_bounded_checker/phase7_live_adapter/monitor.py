@@ -321,7 +321,8 @@ def materialize_policy(profile, observed, runtime, low, high):
     validate_profile(profile)
     facts = observed['facts']
     refclocks = facts['configuration']['refclocks']
-    need(len(refclocks) == 1 and refclocks[0][:2] == ['PHC', '/dev/ptp_hyperv'], 'MONITOR_PROFILE_MISMATCH')
+    need(len(refclocks) == 1 and refclocks[0][0] == 'PHC'
+         and refclocks[0][1] in ('/dev/ptp_hyperv', facts['hyperv']['resolved']), 'MONITOR_PROFILE_MISMATCH')
     options = refclocks[0][2:]
     need(len(options) % 2 == 0 and len(set(options[::2])) == len(options[::2]), 'MONITOR_PROFILE_MISMATCH')
     options = dict(zip(options[::2], options[1::2]))
